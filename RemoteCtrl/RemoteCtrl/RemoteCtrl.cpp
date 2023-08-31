@@ -92,6 +92,7 @@ int MakeDirectoryInfo() {
         return -2;
     }
 
+    // 遍历目录
     _finddata_t fdata;
     int hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1) {
@@ -109,8 +110,7 @@ int MakeDirectoryInfo() {
 
     } while (!_findnext(hfind, &fdata));
 
-    //发送信息到控制端
-    // 可能文件很多，最好不断发送信息
+    // 发送信息到控制端，可能文件很多，最好不断发送信息
     FILEINFO finfo;
     finfo.HasNext = false;
     CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
@@ -119,7 +119,58 @@ int MakeDirectoryInfo() {
     return 0;
 }
 
-using namespace std;
+
+int RunFile() {
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    //shell执行
+    ShellExecuteA(NULL, NULL, strPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
+    // 回发消息
+    CPacket pack(3, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+
+    return 0;
+}
+
+//#pragma warning(disable:4996) //fopen sprintf strcpy strstr
+
+int DownloadFile() {//将文件发送到客户端
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+
+    long long dataSize = 0;
+    // 二进制打开文件
+    FILE* pFile = NULL;
+    errno_t err = fopen_s(&pFile, strPath.c_str(), "rb");
+    if (err != 0) {
+        CPacket pack(4, (BYTE*)dataSize, 8);
+        CServerSocket::getInstance()->Send(pack);
+        return -1;
+    }
+    // 先发送文件大小
+    if (pFile != NULL) {
+        fseek(pFile, 0, SEEK_END);
+        dataSize = _ftelli64(pFile);
+        CPacket head(4, (BYTE*)dataSize, 8);
+        CServerSocket::getInstance()->Send(head);
+        fseek(pFile, 0, SEEK_SET);
+
+        char buffer[1024]{};
+        // 循环发送文件
+        size_t rlen = 0;
+        do {
+            memset(buffer, 0, sizeof(buffer));
+            rlen = fread(buffer, 1, 1024, pFile);
+            CPacket pack(4, (BYTE*)buffer, rlen);
+            CServerSocket::getInstance()->Send(pack);
+        } while (rlen >= 1024);
+        fclose(pFile);
+    }
+    // 发送结束消息
+    CPacket pack(4, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
 
 int main()
 {
@@ -167,6 +218,12 @@ int main()
                 break;
             case 2: // 查看指定目录下的文件
                 MakeDirectoryInfo();
+                break;
+            case 3: //打开文件
+                RunFile();
+                break;
+            case 4: // 下载文件
+                DownloadFile();
                 break;
             default:
                 break;

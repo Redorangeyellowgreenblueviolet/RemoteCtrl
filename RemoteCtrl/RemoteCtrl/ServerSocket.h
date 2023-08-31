@@ -15,8 +15,13 @@ public:
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
 		sCmd = nCmd;
-		strData.resize(nSize);
-		memcpy((void*)strData.c_str(), pData, nSize);
+		if (nSize > 0) {
+			strData.resize(nSize);
+			memcpy((void*)strData.c_str(), pData, nSize);
+		}
+		else {
+			strData.clear();
+		}
 		sSum = 0;
 		for (size_t j = 0; j < strData.size(); j++) {
 			sSum += strData[j] & 0xFF;
@@ -182,7 +187,6 @@ public:
 
 		}
 	}
-
 	/*
 	* 包的设计
 	* 包头 长度 命令 数据 校验
@@ -204,7 +208,7 @@ public:
 	}
 
 	bool GetFilePath(std::string strPath) {
-		if (m_packet.sCmd == 2) {
+		if (m_packet.sCmd == 2 || m_packet.sCmd ==3 || m_packet.sCmd == 4) {
 			strPath = m_packet.strData;
 			return true;
 		}
