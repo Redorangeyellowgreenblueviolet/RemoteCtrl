@@ -6,7 +6,9 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include <direct.h>
-
+#include <io.h>
+#include <list>
+#include <atlimage.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -56,8 +58,7 @@ int MakeDriverInfo() {//磁盘分区 1->A 2->B 3->C
     return 0;
 }
 
-#include <io.h>
-#include <list>
+
 typedef struct file_info{
     file_info() {
         IsInvalid = 0;
@@ -279,6 +280,46 @@ int MouseEvent() {
     return 0;
 }
 
+int SendScreen() {
+    // GDI 全局设备接口
+    CImage screen; //用于存储
+
+    HDC hScreen = ::GetDC(NULL); //屏幕
+    // Ques
+    // 位宽 真色彩 (255,255,255) RGB888 24bit
+    // ARGB8888 32bit RGB444 RGB565
+    int nBitPerPixel = GetDeviceCaps(hScreen, BITSPIXEL);
+    int nWidth = GetDeviceCaps(hScreen, HORZRES);
+    int nHeight = GetDeviceCaps(hScreen, VERTRES);
+    screen.Create(nWidth, nHeight, nBitPerPixel);
+    BitBlt(screen.GetDC(), 0, 0, 1920, 1080, hScreen, 0, 0, SRCCOPY);
+    ReleaseDC(NULL, hScreen);
+
+    // 以内存流的方式发送
+    HGLOBAL hmem = GlobalAlloc(GMEM_MOVEABLE, 0);
+    if (hmem == NULL)return -1;
+    IStream* pStream = NULL;
+    HRESULT ret = CreateStreamOnHGlobal(hmem, true, &pStream);
+    if (ret == S_OK) {
+        screen.Save(pStream, Gdiplus::ImageFormatPNG);
+        LARGE_INTEGER bg{ 0 };
+        pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+        PBYTE pData = (PBYTE)GlobalLock(hmem);
+        SIZE_T nSize = GlobalSize(hmem);
+        CPacket pack(6, pData, nSize);
+        CServerSocket::getInstance()->Send(pack);
+        GlobalUnlock(hmem);
+    }
+
+    //DWORD64 tick = GetTickCount64(); //获得当前tick 
+    //screen.Save(_T("test.png"), Gdiplus::ImageFormatPNG);
+    //TRACE(_T("png %d\r\n"), GetTickCount64() - tick);
+    pStream->Release();
+    GlobalFree(hmem);
+    screen.ReleaseDC();
+    return 0;
+}
+
 int main()
 {
     int nRetCode = 0;
@@ -316,7 +357,7 @@ int main()
             //    //TODO
             //}
             
-            int nCmd = 1;
+            int nCmd = 6;
             switch (nCmd)
             {
 
@@ -335,7 +376,8 @@ int main()
             case 5: // 鼠标事件
                 MouseEvent();
                 break;
-            default:
+            case 6: // 发送屏幕内容--发送屏幕截图
+                SendScreen();
                 break;
             }
 
