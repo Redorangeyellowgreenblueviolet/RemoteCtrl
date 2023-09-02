@@ -5,6 +5,9 @@
 #include <vector>
 #pragma warning(disable:4996)
 
+
+void Dump(BYTE* pData, size_t nSize);
+
 #define BUFFER_SIZE 4096
 
 #pragma pack(push)
@@ -136,6 +139,20 @@ typedef struct MOUSEEVENT { // 鼠标描述
 
 
 
+typedef struct file_info {
+	file_info() {
+		IsInvalid = 0;
+		IsDirectory = 0;
+		HasNext = 1;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	char szFileName[256]; //文件名
+	bool IsInvalid; //是否无效 0有效
+	bool IsDirectory; //是否为目录 0不是 1是
+	bool HasNext; //是否有后续 0 没有 1有
+}FILEINFO, * PFILEINFO;
+
+
 std::string GetErrInfo(int wsaErrno);
 
 
@@ -192,7 +209,7 @@ public:
 		size_t index = 0;
 		while (true) {
 			size_t len = recv(m_sock, buffer+index, sizeof(buffer), 0);
-			TRACE("len: %d",len);
+			TRACE("len: %d\r\n",len);
 			if (len <= 0) {
 				return -1;
 			}
@@ -224,6 +241,7 @@ public:
 
 	bool Send(CPacket& pack) {
 		TRACE("m_sock %d\r\n", m_sock);
+		Dump((BYTE*)pack.Data(), pack.Size());
 		if (m_sock == -1)
 			return false;
 		return send(m_sock, pack.Data(), pack.Size(), 0) > 0;

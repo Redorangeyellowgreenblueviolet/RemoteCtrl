@@ -51,7 +51,7 @@ int MakeDriverInfo() {//磁盘分区 1->A 2->B 3->C
             result += 'A' + i - 1;
         }
     }
-
+    result += ',';
     CPacket pack(1, (BYTE*)result.c_str(), result.size()); //打包
     Dump((BYTE*)pack.Data(), pack.Size() );
     CServerSocket::getInstance()->Send(pack);
@@ -59,18 +59,7 @@ int MakeDriverInfo() {//磁盘分区 1->A 2->B 3->C
 }
 
 
-typedef struct file_info{
-    file_info() {
-        IsInvalid = 0;
-        IsDirectory = 0;
-        HasNext = 1;
-        memset(szFileName, 0, sizeof(szFileName));
-    }
-    char szFileName[256]; //文件名
-    bool IsInvalid; //是否无效 0有效
-    bool IsDirectory; //是否为目录 0不是 1是
-    bool HasNext; //是否有后续 0 没有 1有
-}FILEINFO, *PFILEINFO;
+
 
 
 int MakeDirectoryInfo() {
@@ -80,13 +69,10 @@ int MakeDirectoryInfo() {
         OutputDebugString(_T("获取路径错误，解析错误"));
         return -1;
     }
+    TRACE("%s\r\n", strPath.c_str());
     if (_chdir(strPath.c_str()) != 0) {
         FILEINFO finfo;
-        finfo.IsInvalid = true;
-        finfo.IsDirectory = true;
         finfo.HasNext = false;
-        memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
-        //listFileInfos.push_back(finfo);
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
         OutputDebugString(_T("无权限访问目录"));
@@ -98,6 +84,10 @@ int MakeDirectoryInfo() {
     int hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1) {
         OutputDebugString(_T("没有找到文件"));
+        FILEINFO finfo;
+        finfo.HasNext = false;
+        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        CServerSocket::getInstance()->Send(pack);
         return -3;
     }
 

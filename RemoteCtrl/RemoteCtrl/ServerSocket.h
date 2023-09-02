@@ -3,6 +3,7 @@
 #include "framework.h"
 #define BUFFER_SIZE 4096
 
+void Dump(BYTE* pData, size_t nSize);
 
 #pragma pack(push)
 #pragma pack(1)
@@ -132,6 +133,20 @@ typedef struct MOUSEEVENT { // 鼠标描述
 }MOUSEEV, *PMOUSEEV;
 
 
+typedef struct file_info {
+	file_info() {
+		IsInvalid = 0;
+		IsDirectory = 0;
+		HasNext = 1;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	char szFileName[256]; //文件名
+	bool IsInvalid; //是否无效 0有效
+	bool IsDirectory; //是否为目录 0不是 1是
+	bool HasNext; //是否有后续 0 没有 1有
+}FILEINFO, * PFILEINFO;
+
+
 class CServerSocket
 {
 public:
@@ -226,11 +241,12 @@ public:
 	bool Send(CPacket& pack) {
 		if (m_client == -1)
 			return false;
-		OutputDebugStringA(pack.Data());
+		//OutputDebugStringA(pack.Data());
+		Dump((BYTE*)pack.Data(), pack.Size());
 		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
 	}
 
-	bool GetFilePath(std::string strPath) {
+	bool GetFilePath(std::string &strPath) {
 		if (m_packet.sCmd == 2 || m_packet.sCmd ==3 || m_packet.sCmd == 4) {
 			strPath = m_packet.strData;
 			return true;
