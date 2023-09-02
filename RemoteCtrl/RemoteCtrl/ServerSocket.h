@@ -226,7 +226,8 @@ public:
 	bool Send(CPacket& pack) {
 		if (m_client == -1)
 			return false;
-		return send(m_client,pack.Data() , pack.Size(), 0) > 0;
+		OutputDebugStringA(pack.Data());
+		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
 	}
 
 	bool GetFilePath(std::string strPath) {

@@ -152,17 +152,19 @@ public:
 	}
 
 	// 初始化套接字
-	bool InitSocket(const std::string& strIP) {
+	bool InitSocket(int nIP, int nPort) {
 		if (m_sock != INVALID_SOCKET) 
 			CloseSocket();
+
+		TRACE("addr:%08x, nIP:%08X, nPort:%d\r\n", inet_addr("127.0.0.1"), nIP, nPort);
 		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) return false;
 
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = inet_addr(strIP.c_str());
-		serv_addr.sin_port = htons(9527);
+		serv_addr.sin_addr.s_addr = htonl(nIP);
+		serv_addr.sin_port = htons(nPort);
 		
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox(_T("指定的IP不存在!"));
@@ -189,7 +191,8 @@ public:
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
-			size_t len = recv(m_sock, buffer, sizeof(buffer), 0);
+			size_t len = recv(m_sock, buffer+index, sizeof(buffer), 0);
+			TRACE("len: %d",len);
 			if (len <= 0) {
 				return -1;
 			}
@@ -197,7 +200,7 @@ public:
 			//len读取的大小 返回变为已解析的长度
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
-			if (len > 0) { //Qu 缓冲取前移动 覆盖问题 
+			if (len > 0) { //Question 缓冲取前移动 覆盖问题 
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);
 				index -= len;
 				return m_packet.sCmd;
