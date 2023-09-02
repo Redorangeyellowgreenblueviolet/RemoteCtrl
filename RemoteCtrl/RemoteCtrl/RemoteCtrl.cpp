@@ -320,6 +320,78 @@ int SendScreen() {
     return 0;
 }
 
+#include "LockInfoDialog.h"
+CLockInfoDialog dlg;
+unsigned threadid = 0;
+
+unsigned __stdcall threadLockDlg(void* arg) {//锁机线程
+    //窗口置顶
+    dlg.Create(IDD_DIALOG_INFO, NULL);
+    dlg.ShowWindow(SW_SHOW);
+
+    CRect rect;
+    rect.left = 0;
+    rect.top = 0;
+    rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
+    rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN) + 100;
+
+    //全屏显示
+    dlg.MoveWindow(rect);
+    dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+    //隐藏Windows任务栏
+    ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
+
+    //限制鼠标
+    ShowCursor(false);
+    rect.left = 0;
+    rect.top = 0;
+    rect.right = 1;
+    rect.bottom = 1;
+    dlg.GetWindowRect(rect);
+    ClipCursor(rect);
+
+    //消息循环
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+        if (msg.message == WM_KEYDOWN) {
+            TRACE("msg: %08X wparam:%08X lparam:%08x\r\n", msg.message, msg.wParam, msg.lParam);
+            if (msg.wParam == 0x41) //按下 a 退出
+                break;
+        }
+    }
+    ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);
+    ShowCursor(true);
+    dlg.DestroyWindow();
+    _endthreadex(0);
+    return 0;
+}
+
+int LockMachine() {//锁机
+    /*
+    * 无父窗口 只能用非模态对话框
+    * 限制鼠标 窗口
+    */
+    if (dlg.m_hWnd == NULL || dlg.m_hWnd == INVALID_HANDLE_VALUE) {
+        //_beginthread(threadLockDlg, 0, NULL);
+        _beginthreadex(NULL, 0, threadLockDlg, NULL, 0, &threadid);
+    }
+ 
+    CPacket pack(7, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
+int UnlocakMachine() {
+    //dlg.SendMessage(WM_KEYDOWN, 0x41, 0x01E0001);
+    //::SendMessage(dlg.m_hWnd, WM_KEYDOWN, 0x41, 0x01E0001);
+    PostThreadMessage(threadid, WM_KEYDOWN, 0x41, 0x01E0001);
+    CPacket pack(8, NULL, 0);
+    CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
 int main()
 {
     int nRetCode = 0;
@@ -356,8 +428,9 @@ int main()
             //    int ret = pserver->DealCommand();
             //    //TODO
             //}
-            
-            int nCmd = 6;
+
+
+            int nCmd = 7;
             switch (nCmd)
             {
 
@@ -379,9 +452,22 @@ int main()
             case 6: // 发送屏幕内容--发送屏幕截图
                 SendScreen();
                 break;
+            case 7: // 锁机
+                LockMachine();
+                Sleep(30);
+                break;
+            case 8: // 解锁
+                UnlocakMachine();
+                break;
             }
-
-
+            Sleep(1000);
+            UnlocakMachine();
+            Sleep(30);
+            while ((dlg.m_hWnd != NULL && dlg.m_hWnd != INVALID_HANDLE_VALUE))
+            {
+                // 阻塞线程
+                Sleep(1000);
+            }
         }
     }
     else
