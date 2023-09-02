@@ -391,6 +391,50 @@ int UnlocakMachine() {
     CServerSocket::getInstance()->Send(pack);
     return 0;
 }
+int TestConnect() {
+    CPacket pack(1981, NULL, 0);
+    bool ret = CServerSocket::getInstance()->Send(pack);
+    
+    TRACE("Send ret:%d", ret);
+    return 0;
+}
+
+int ExecuteCommond(int nCmd)
+{
+    int ret = 0;
+    switch (nCmd)
+    {
+    case 1: //查看分区
+        ret = MakeDriverInfo();
+        break;
+    case 2: // 查看指定目录下的文件
+        ret = MakeDirectoryInfo();
+        break;
+    case 3: //打开文件
+        ret = RunFile();
+        break;
+    case 4: // 下载文件
+        ret = DownloadFile();
+        break;
+    case 5: // 鼠标事件
+        ret = MouseEvent();
+        break;
+    case 6: // 发送屏幕内容--发送屏幕截图
+        ret = SendScreen();
+        break;
+    case 7: // 锁机
+        ret = LockMachine();
+        Sleep(30);
+        break;
+    case 8: // 解锁
+        ret = UnlocakMachine();
+        break;
+    case 1981: //连接测试
+        ret = TestConnect();
+        break;
+    }
+    return ret;
+}
 
 int main()
 {
@@ -410,64 +454,40 @@ int main()
         else
         {
 
-            //CServerSocket* pserver = CServerSocket::getInstance();
-            //int count = 0;
-            //if (pserver->InitSocket() == false) {
-            //    MessageBox(NULL, _T("网络初始化异常"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
-            //    exit(0);
-            //}
-            //while (CServerSocket::getInstance != NULL) {
-            //    if (pserver->AcceptClient() == false) {
-            //        if (count >= 3) {
-            //            MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-            //            exit(0);
-            //        }
-            //        MessageBox(NULL, _T("无法正常接入用户，请重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
-            //        count++;
-            //    }
-            //    int ret = pserver->DealCommand();
-            //    //TODO
-            //}
-
-
-            int nCmd = 7;
-            switch (nCmd)
-            {
-
-            case 1: //查看分区
-                MakeDriverInfo();
-                break;
-            case 2: // 查看指定目录下的文件
-                MakeDirectoryInfo();
-                break;
-            case 3: //打开文件
-                RunFile();
-                break;
-            case 4: // 下载文件
-                DownloadFile();
-                break;
-            case 5: // 鼠标事件
-                MouseEvent();
-                break;
-            case 6: // 发送屏幕内容--发送屏幕截图
-                SendScreen();
-                break;
-            case 7: // 锁机
-                LockMachine();
-                Sleep(30);
-                break;
-            case 8: // 解锁
-                UnlocakMachine();
-                break;
+            CServerSocket* pserver = CServerSocket::getInstance();
+            int count = 0;
+            if (pserver->InitSocket() == false) {
+                MessageBox(NULL, _T("网络初始化异常"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+                exit(0);
             }
-            Sleep(1000);
-            UnlocakMachine();
-            Sleep(30);
-            while ((dlg.m_hWnd != NULL && dlg.m_hWnd != INVALID_HANDLE_VALUE))
-            {
-                // 阻塞线程
-                Sleep(1000);
+            while (CServerSocket::getInstance != NULL) {
+                if (pserver->AcceptClient() == false) {
+                    if (count >= 3) {
+                        MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                        exit(0);
+                    }
+                    MessageBox(NULL, _T("无法正常接入用户，请重试"), _T("接入用户失败"), MB_OK | MB_ICONERROR);
+                    count++;
+                }
+                /*
+                * 短连接 适合小量数据 获取分区等功能
+                * 长连接 效率高 适合大量数据频繁发送 传输文件
+                */
+                int ret = pserver->DealCommand();
+                TRACE("DealCommand ret:%d\r\n", ret);
+                if (ret > 0) {
+                    ret = ExecuteCommond(ret);
+                    if (ret != 0) {
+                        TRACE(_T("处理命令失败 %d ret=%d\r\n"), pserver->GetPacket().sCmd, ret);
+                    }
+                    pserver->CloseClient();
+                    TRACE("Commond has done\r\n");
+                }
+                
             }
+
+
+            
         }
     }
     else

@@ -2,6 +2,7 @@
 #include "pch.h"
 #include "framework.h"
 #include <string>
+#include <vector>
 #pragma warning(disable:4996)
 
 #define BUFFER_SIZE 4096
@@ -135,20 +136,7 @@ typedef struct MOUSEEVENT { // 鼠标描述
 
 
 
-std::string GetErrorInfo(int wsaErrno) { //获得错误信息
-	std::string ret;
-	LPVOID lpMsgBuf = NULL;
-	FormatMessage(
-		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
-		NULL,
-		wsaErrno,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		(LPTSTR)&lpMsgBuf, 0, NULL
-	);
-	ret = (char*)lpMsgBuf;
-	LocalFree(lpMsgBuf);
-	return ret;
-}
+std::string GetErrInfo(int wsaErrno);
 
 
 class CClientSocket
@@ -165,6 +153,9 @@ public:
 
 	// 初始化套接字
 	bool InitSocket(const std::string& strIP) {
+		if (m_sock != INVALID_SOCKET) 
+			CloseSocket();
+		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) return false;
 
 		sockaddr_in serv_addr;
@@ -182,19 +173,19 @@ public:
 		if (connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
 			// Question
 			AfxMessageBox(_T("连接失败"));
-			TRACE("连接失败: %d %s.\r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
+			TRACE("连接失败: %d %s.\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
 			return false;
 		}
 		return true;
 	}
 
 
-	// 处理命令
-	int DealCommand() {
+	// 内存释放 可能收到服务端的多个包 不能每次delete
+	int DealCommand() { //处理命令
 		if (m_sock == -1) {
 			return -1;
 		}
-		char* buffer = new char[BUFFER_SIZE];
+		char* buffer = m_buffer.data();
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
@@ -229,6 +220,7 @@ public:
 	}
 
 	bool Send(CPacket& pack) {
+		TRACE("m_sock %d\r\n", m_sock);
 		if (m_sock == -1)
 			return false;
 		return send(m_sock, pack.Data(), pack.Size(), 0) > 0;
@@ -250,8 +242,17 @@ public:
 		return false;
 	}
 
-private:
+	CPacket& GetPacket() {
+		return m_packet;
+	}
 
+	void CloseSocket() {
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
+	}
+
+private:
+	std::vector<char> m_buffer;
 	static CClientSocket* m_instance;
 	SOCKET m_sock;
 	CPacket m_packet;
@@ -263,11 +264,11 @@ private:
 	CClientSocket() {
 		if (!InitSockEnv())
 		{
-			//Qu
+			//Question
 			MessageBox(NULL, _T("无法初始化套接字环境."), _T("初始化错误."), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
+		m_buffer.resize(BUFFER_SIZE);
 	}
 	~CClientSocket() {
 		closesocket(m_sock);

@@ -165,9 +165,11 @@ public:
 
 	// 接收连接
 	bool AcceptClient() {
+		TRACE("Enter AcceptClient\r\n");
 		sockaddr_in client_addr;
 		int client_size = sizeof(client_addr);
 		m_client = accept(m_sock, (sockaddr*)&client_addr, &client_size);
+		TRACE("m_client = %d \r\n", m_client);
 		if (m_client == -1) {
 			return false;
 		}
@@ -180,24 +182,32 @@ public:
 			return -1;
 		}
 		char* buffer = new char[BUFFER_SIZE];
+		if (buffer == NULL) {
+			TRACE("memory not enough");
+			return -2;
+		}
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
-		while (true) {
-			size_t len = recv(m_client, buffer, sizeof(buffer), 0);
+		while (true) { //Question 拼接
+			size_t len = recv(m_client, buffer + index, sizeof(buffer), 0);
 			if (len <= 0) {
+				delete[] buffer;
 				return -1;
 			}
+			TRACE("len:%d\r\n", len);
 			index += len;
-			//len读取的大小 返回变为已解析的长度
+			//len使用缓冲区长度 返回变为已解析的长度
 			len = index;
 			m_packet =  CPacket((BYTE*)buffer, len);
-			if (len > 0) { //Qu 缓冲取前移动 覆盖问题 
+			if (len > 0) { //Question 缓冲取前移动 覆盖问题 
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);
 				index -= len;
+				delete[] buffer;
 				return m_packet.sCmd;
 			}
 
 		}
+		return -1;
 	}
 	/*
 	* 包的设计
@@ -233,6 +243,15 @@ public:
 			return true;
 		}
 		return false;
+	}
+
+	CPacket& GetPacket() {
+		return m_packet;
+	}
+
+	void CloseClient() { //关闭客户端连接
+		closesocket(m_client);
+		m_client = INVALID_SOCKET;
 	}
 
 private:
