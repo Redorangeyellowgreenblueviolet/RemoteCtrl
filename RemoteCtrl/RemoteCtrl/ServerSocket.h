@@ -246,8 +246,8 @@ public:
 		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
 	}
 
-	bool GetFilePath(std::string &strPath) {
-		if (m_packet.sCmd == 2 || m_packet.sCmd ==3 || m_packet.sCmd == 4) {
+	bool GetFilePath(std::string& strPath) {
+		if (m_packet.sCmd == 2 || m_packet.sCmd == 3 || m_packet.sCmd == 4 || m_packet.sCmd == 9) {
 			strPath = m_packet.strData;
 			return true;
 		}

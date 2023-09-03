@@ -257,6 +257,34 @@ void CRemoteClientDlg::DeleteTreeChildrenItem(HTREEITEM hTree)
 }
 
 
+void CRemoteClientDlg::LoadFileCurrent()
+{
+	HTREEITEM hTree = m_Tree.GetSelectedItem();
+	CString strPath = GetPath(hTree);
+	m_List.DeleteAllItems();
+	//发送命令
+	int nCmd = SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
+	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+	CClientSocket* pClient = CClientSocket::getInstance();
+
+	int count = 0;
+	while (pInfo->HasNext) {
+		TRACE("[%s] isdir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
+		if (!pInfo->IsDirectory){
+			m_List.InsertItem(0, pInfo->szFileName);
+		}
+		count++;
+		int cmd = pClient->DealCommand();
+		TRACE("ack:%d\r\n", cmd);
+		if (cmd < 0)
+			break;
+		pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+	}
+	TRACE("Client count %d\r\n", count);
+
+	pClient->CloseSocket();
+}
+
 void CRemoteClientDlg::LoadFileInfo()
 {
 	//获取鼠标位置
@@ -357,7 +385,7 @@ void CRemoteClientDlg::OnDownloadFile()
 	CString strFile = m_List.GetItemText(nListSelected, 0);
 	
 	//文件对话框 选择保存的位置
-	CFileDialog dlg(FALSE, "*", strFile, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, this);
+	CFileDialog dlg(FALSE, NULL, strFile, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, this);
 	
 	if (dlg.DoModal() == IDOK) {
 		FILE* pFile = fopen(dlg.GetPathName(), "wb+");
@@ -371,19 +399,23 @@ void CRemoteClientDlg::OnDownloadFile()
 		strFile = GetPath(hSelected) + strFile;
 		TRACE("strFile:%s\r\n", LPCSTR(strFile));
 		// 发送命令 不关闭连接
+		CClientSocket* pClient = CClientSocket::getInstance();
 		int ret = SendCommandPacket(4, FALSE, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 		if (ret < 0) {
 			AfxMessageBox("执行下载命令失败.");
 			TRACE("执行下载命令失败 ret=%d\r\n", ret);
+			fclose(pFile);
+			pClient->CloseSocket();
 			return;
 		}
 		// 处理服务端返回的消息
-		CClientSocket* pClient = CClientSocket::getInstance();
 
 		// 先接收长度
 		long long nLength = *(long long*)pClient->GetPacket().strData.c_str();
 		if (nLength == 0) {
 			AfxMessageBox("文件长度为0或无法读取文件");
+			fclose(pFile);
+			pClient->CloseSocket();
 			return;
 		}
 		//再写文件
@@ -410,11 +442,30 @@ void CRemoteClientDlg::OnDownloadFile()
 
 void CRemoteClientDlg::OnDeleteFile()
 {
-	// TODO: 在此添加命令处理程序代码
+	// 删除文件
+	HTREEITEM hSelectedNode = m_Tree.GetSelectedItem();
+	CString strPath = GetPath(hSelectedNode);
+	int nSelected = m_List.GetSelectionMark();
+	CString strFile = m_List.GetItemText(nSelected, 0);
+	strFile = strPath + strFile;
+	int ret = SendCommandPacket(9, TRUE, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	if (ret < 0) {
+		AfxMessageBox("删除文件命令执行失败");
+	}
+	LoadFileCurrent();
 }
 
 
 void CRemoteClientDlg::OnRunFile()
 {
-	// TODO: 在此添加命令处理程序代码
+	// 打开文件
+	HTREEITEM hSelectedNode = m_Tree.GetSelectedItem();
+	CString strPath = GetPath(hSelectedNode);
+	int nSelected = m_List.GetSelectionMark();
+	CString strFile = m_List.GetItemText(nSelected, 0);
+	strFile = strPath + strFile;
+	int ret = SendCommandPacket(3, TRUE, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	if (ret < 0) {
+		AfxMessageBox("打开文件命令执行失败");
+	}
 }

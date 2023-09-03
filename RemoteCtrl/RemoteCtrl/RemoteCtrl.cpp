@@ -167,6 +167,23 @@ int DownloadFile() {//将文件发送到客户端
     return 0;
 }
 
+
+int DeleteLocalFile() {//删除文件
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    TCHAR sPath[MAX_PATH] = _T("");
+    MultiByteToWideChar(CP_ACP, 0, strPath.c_str(), strPath.size(), sPath, sizeof(sPath) / sizeof(TCHAR));
+    DeleteFile(sPath);
+
+    //DeleteFileA(strPath.c_str());
+
+    CPacket pack(9, NULL, 0);
+    bool ret = CServerSocket::getInstance()->Send(pack);
+    TRACE("Send ret:%d\r\n", ret);
+    return 0;
+}
+
+
 int MouseEvent() {
 
     MOUSEEV mouse;
@@ -422,6 +439,9 @@ int ExecuteCommond(int nCmd)
         break;
     case 8: // 解锁
         ret = UnlocakMachine();
+        break;
+    case 9: //删除文件
+        ret = DeleteLocalFile();
         break;
     case 1981: //连接测试
         ret = TestConnect();

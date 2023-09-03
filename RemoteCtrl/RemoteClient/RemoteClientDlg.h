@@ -26,10 +26,17 @@ private:
 	* 2 查看指定目录下的文件
 	* 3 打开文件
 	* 4 下载文件
+	* 9 删除文件
+	* 5 鼠标操作
+	* 6 发送屏幕内容
+	* 7 锁机
+	* 8 解锁
+	* 1981 测试连接
 	* 返回值 命令号 错误-1
 	*/
 	int SendCommandPacket(int nCmd, bool bAutoClose = true,BYTE* pData = NULL, size_t nLength = 0);
 
+	void LoadFileCurrent();
 	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
