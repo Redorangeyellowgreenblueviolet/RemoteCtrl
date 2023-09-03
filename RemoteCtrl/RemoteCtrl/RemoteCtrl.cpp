@@ -91,15 +91,19 @@ int MakeDirectoryInfo() {
         return -3;
     }
 
+    int count = 0;
     do {
         FILEINFO finfo;
         finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
+        finfo.HasNext = true;
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
-        //listFileInfos.push_back(finfo);
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
 
+        count++;
+
     } while (!_findnext(hfind, &fdata));
+    TRACE("count: %d\r\n", count);
 
     // 发送信息到控制端，可能文件很多，最好不断发送信息
     FILEINFO finfo;

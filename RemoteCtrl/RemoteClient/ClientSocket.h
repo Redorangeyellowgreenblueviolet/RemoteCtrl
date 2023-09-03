@@ -205,11 +205,12 @@ public:
 			return -1;
 		}
 		char* buffer = m_buffer.data();
-		memset(buffer, 0, BUFFER_SIZE);
-		size_t index = 0;
+		//Question 之前接收的只处理了一个包，清空 index置0 导致丢包
+		//memset(buffer, 0, BUFFER_SIZE);
+		size_t index = strlen(buffer);
 		while (true) {
 			size_t len = recv(m_sock, buffer+index, sizeof(buffer), 0);
-			TRACE("len: %d\r\n",len);
+			//TRACE("len: %d\r\n",len);
 			if (len <= 0) {
 				return -1;
 			}
@@ -219,7 +220,9 @@ public:
 			m_packet = CPacket((BYTE*)buffer, len);
 			if (len > 0) { //Question 缓冲取前移动 覆盖问题 
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);
+				memset(buffer + BUFFER_SIZE - len, 0, len);
 				index -= len;
+				TRACE("client strData: [%s]\r\n", m_packet.strData.c_str());
 				return m_packet.sCmd;
 			}
 
@@ -241,7 +244,7 @@ public:
 
 	bool Send(CPacket& pack) {
 		TRACE("m_sock %d\r\n", m_sock);
-		Dump((BYTE*)pack.Data(), pack.Size());
+		//Dump((BYTE*)pack.Data(), pack.Size());
 		if (m_sock == -1)
 			return false;
 		return send(m_sock, pack.Data(), pack.Size(), 0) > 0;

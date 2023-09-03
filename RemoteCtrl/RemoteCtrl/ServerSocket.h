@@ -136,7 +136,7 @@ typedef struct MOUSEEVENT { // 鼠标描述
 typedef struct file_info {
 	file_info() {
 		IsInvalid = 0;
-		IsDirectory = 0;
+		IsDirectory = -1;
 		HasNext = 1;
 		memset(szFileName, 0, sizeof(szFileName));
 	}
@@ -209,7 +209,7 @@ public:
 				delete[] buffer;
 				return -1;
 			}
-			TRACE("len:%d\r\n", len);
+			//TRACE("len:%d\r\n", len);
 			index += len;
 			//len使用缓冲区长度 返回变为已解析的长度
 			len = index;
@@ -242,7 +242,7 @@ public:
 		if (m_client == -1)
 			return false;
 		//OutputDebugStringA(pack.Data());
-		Dump((BYTE*)pack.Data(), pack.Size());
+		//Dump((BYTE*)pack.Data(), pack.Size());
 		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
 	}
 
