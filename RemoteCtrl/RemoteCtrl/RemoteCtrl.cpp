@@ -138,7 +138,7 @@ int DownloadFile() {//将文件发送到客户端
     FILE* pFile = NULL;
     errno_t err = fopen_s(&pFile, strPath.c_str(), "rb");
     if (err != 0) {
-        CPacket pack(4, (BYTE*)dataSize, 8);
+        CPacket pack(4, (BYTE*)&dataSize, 8);
         CServerSocket::getInstance()->Send(pack);
         return -1;
     }
@@ -146,7 +146,7 @@ int DownloadFile() {//将文件发送到客户端
     if (pFile != NULL) {
         fseek(pFile, 0, SEEK_END);
         dataSize = _ftelli64(pFile);
-        CPacket head(4, (BYTE*)dataSize, 8);
+        CPacket head(4, (BYTE*)&dataSize, 8);
         CServerSocket::getInstance()->Send(head);
         fseek(pFile, 0, SEEK_SET);
 
