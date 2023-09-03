@@ -207,11 +207,12 @@ public:
 		char* buffer = m_buffer.data();
 		//Question 之前接收的只处理了一个包，清空 index置0 导致丢包
 		//memset(buffer, 0, BUFFER_SIZE);
-		size_t index = strlen(buffer);
+		//每次需要保留上次的位置 可以用静态变量
+		static size_t index = 0;
 		while (true) {
-			size_t len = recv(m_sock, buffer+index, sizeof(buffer), 0);
+			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
 			//TRACE("len: %d\r\n",len);
-			if (len <= 0) {
+			if (len <= 0 && index<=0) {
 				return -1;
 			}
 			index += len;
@@ -219,8 +220,8 @@ public:
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
 			if (len > 0) { //Question 缓冲取前移动 覆盖问题 
-				memmove(buffer, buffer + len, BUFFER_SIZE - len);
-				memset(buffer + BUFFER_SIZE - len, 0, len);
+				memmove(buffer, buffer + len, index - len);
+				//memset(buffer + index - len, 0, len);
 				index -= len;
 				TRACE("client strData: [%s]\r\n", m_packet.strData.c_str());
 				return m_packet.sCmd;
@@ -293,6 +294,7 @@ private:
 			exit(0);
 		}
 		m_buffer.resize(BUFFER_SIZE);
+		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 	~CClientSocket() {
 		closesocket(m_sock);

@@ -435,7 +435,7 @@ void CRemoteClientDlg::OnDownloadFile()
 		pClient->CloseSocket();
 	}
 
-
+	//TODO 大文件传输
 
 }
 
@@ -452,7 +452,7 @@ void CRemoteClientDlg::OnDeleteFile()
 	if (ret < 0) {
 		AfxMessageBox("删除文件命令执行失败");
 	}
-	LoadFileCurrent();
+	LoadFileCurrent(); //TODO 文件显示有遗漏
 }
 
 
