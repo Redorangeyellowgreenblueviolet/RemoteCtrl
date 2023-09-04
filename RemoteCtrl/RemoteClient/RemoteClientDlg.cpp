@@ -7,6 +7,7 @@
 #include "RemoteClient.h"
 #include "RemoteClientDlg.h"
 #include "afxdialogex.h"
+#include "WatchDialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -107,6 +108,8 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
 	//Question 消息注册
 	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::OnSendPacket)
+	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemoteClientDlg::OnBnClickedBtnStartWatch)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -355,9 +358,25 @@ void CRemoteClientDlg::threadWatchData()
 		if (ret) {
 			int nCmd = pClient->DealCommand();
 			if (nCmd == 6) {
-				if (m_isFull == FALSE) {
+				if (m_isFull == FALSE) { //更新数据到缓存
 					// TODO 存入CImage
 					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
+					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+					if (hMem == NULL) {
+						TRACE(_T("内存不足\r\n"));
+						Sleep(1);
+						continue;
+					}
+					IStream* pStream = NULL;
+					HRESULT hRet = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+					if (hRet == S_OK) {
+						ULONG ulength = 0;
+						pStream->Write(pData, pClient->GetPacket().strData.size(), &ulength);
+						LARGE_INTEGER bg{ 0 };
+						pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+						m_image.Load(pStream);
+						m_isFull = TRUE;
+					}
 					m_isFull = TRUE;
 				}
 			}
@@ -539,4 +558,21 @@ LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 	// 31位表示nCmd 1位表示autoClose
 	int ret = SendCommandPacket(wParam>>1, wParam&1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	return LRESULT();
+}
+
+
+void CRemoteClientDlg::OnBnClickedBtnStartWatch()
+{
+	// 按下监控按钮
+	_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);
+	CWatchDialog dlg(this);
+	dlg.DoModal();
+}
+
+
+void CRemoteClientDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	CDialogEx::OnTimer(nIDEvent);
 }
