@@ -353,7 +353,7 @@ void CRemoteClientDlg::threadWatchData()
 		Sleep(1);
 	} while (pClient == NULL);
 
-	while (TRUE) {
+	while (m_isWatchClosed == FALSE) {//TODO 存在线程结束导致的问题
 		if (m_isFull == FALSE) { //更新数据到缓存
 			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);
 			TRACE("ret:%d\r\n", ret);
@@ -373,6 +373,10 @@ void CRemoteClientDlg::threadWatchData()
 					pStream->Write(pData, pClient->GetPacket().strData.size(), &ulength);
 					LARGE_INTEGER bg{ 0 };
 					pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+
+					if ((HBITMAP)m_image != NULL)
+						m_image.Destroy();
+
 					m_image.Load(pStream);
 					m_isFull = TRUE;
 				}
@@ -585,10 +589,13 @@ LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 
 void CRemoteClientDlg::OnBnClickedBtnStartWatch()
 {
+	m_isWatchClosed = FALSE;
 	// 按下监控按钮
 	CWatchDialog dlg(this);
-	_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);
+	HANDLE hThread = (HANDLE)_beginthread(CRemoteClientDlg::threadEntryForWatchData, 0, this);
 	dlg.DoModal();
+	m_isWatchClosed = TRUE;
+	WaitForSingleObject(hThread, 500);
 }
 
 

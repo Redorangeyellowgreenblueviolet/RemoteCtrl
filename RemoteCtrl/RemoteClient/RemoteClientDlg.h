@@ -37,6 +37,7 @@ public:
 private:
 	CImage m_image; //缓存
 	bool m_isFull; //true 表示有数据
+	bool m_isWatchClosed; //监控是否关闭
 private:
 	/*
 	* 1 查看磁盘分区
