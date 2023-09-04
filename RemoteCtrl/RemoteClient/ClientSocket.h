@@ -152,7 +152,7 @@ typedef struct file_info {
 	bool HasNext; //是否有后续 0 没有 1有
 }FILEINFO, * PFILEINFO;
 
-#define BUFFER_SIZE 819200
+#define BUFFER_SIZE 1024000
 
 std::string GetErrInfo(int wsaErrno);
 

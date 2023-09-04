@@ -559,16 +559,20 @@ LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
 	int nCmd = wParam >> 1;
 	switch (nCmd)
 	{
-	case 4: 
-		{
-			CString strFile = (LPCSTR)lParam;
-			// 31位表示nCmd 1位表示autoClose
-			ret = SendCommandPacket(nCmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
-		}
+	case 4: {
+		CString strFile = (LPCSTR)lParam;
+		// 31位表示nCmd 1位表示autoClose
+		ret = SendCommandPacket(nCmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	}
 		break;
-	case 6:
+	case 5:{
+		ret = SendCommandPacket(nCmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
+	}
+	break;
+	case 6: {		
 		ret = SendCommandPacket(nCmd, wParam & 1);
-		break;
+	}
+		  break;
 	default:
 		ret = -1;
 		break;
