@@ -28,6 +28,9 @@ public:
 	bool isFull() const {
 		return m_isFull;
 	}
+	void SetImageStatus(bool isFull = FALSE) {
+		m_isFull = isFull;
+	}
 	CImage& GetImage() {
 		return m_image;
 	}
@@ -90,5 +93,4 @@ public:
 	// Question 消息函数声明
 	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedBtnStartWatch();
-	afx_msg void OnTimer(UINT_PTR nIDEvent);
 };

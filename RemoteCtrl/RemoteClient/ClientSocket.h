@@ -8,7 +8,7 @@
 
 void Dump(BYTE* pData, size_t nSize);
 
-#define BUFFER_SIZE 4096
+
 
 #pragma pack(push)
 #pragma pack(1)
@@ -152,6 +152,7 @@ typedef struct file_info {
 	bool HasNext; //是否有后续 0 没有 1有
 }FILEINFO, * PFILEINFO;
 
+#define BUFFER_SIZE 819200
 
 std::string GetErrInfo(int wsaErrno);
 
@@ -204,14 +205,14 @@ public:
 		if (m_sock == -1) {
 			return -1;
 		}
-		char* buffer = m_buffer.data();
 		//Question 之前接收的只处理了一个包，清空 index置0 导致丢包
 		//memset(buffer, 0, BUFFER_SIZE);
 		//每次需要保留上次的位置 可以用静态变量
+		char* buffer = m_buffer.data();
 		static size_t index = 0;
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
-			//TRACE("len: %d\r\n",len);
+			//TRACE("len:%d index:%d\r\n", len, index);
 			if (len <= 0 && index<=0) {
 				return -1;
 			}
@@ -219,15 +220,16 @@ public:
 			//len读取的大小 返回变为已解析的长度
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
-			if (len > 0) { //Question 缓冲取前移动 覆盖问题 
+			if (len > 0) { //Question 缓冲取前移动 覆盖问题
+				TRACE("len:%d index:%d\r\n", len, index);
 				memmove(buffer, buffer + len, index - len);
 				//memset(buffer + index - len, 0, len);
 				index -= len;
 				TRACE("client strData: [%s]\r\n", m_packet.strData.c_str());
 				return m_packet.sCmd;
 			}
-
 		}
+		return -1;
 	}
 	/*
 	* 包的设计

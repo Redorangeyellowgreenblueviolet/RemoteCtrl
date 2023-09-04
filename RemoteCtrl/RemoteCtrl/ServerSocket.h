@@ -136,7 +136,7 @@ typedef struct MOUSEEVENT { //  Û±Í√Ë ˆ
 typedef struct file_info {
 	file_info() {
 		IsInvalid = 0;
-		IsDirectory = -1;
+		IsDirectory = 0;
 		HasNext = 1;
 		memset(szFileName, 0, sizeof(szFileName));
 	}
