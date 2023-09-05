@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XPD:PROJECT xmlns:XPD="http://www.staruml.com" version="1">
+<XPD:HEADER>
+<XPD:SUBUNITS>
+</XPD:SUBUNITS>
+<XPD:PROFILES>
+</XPD:PROFILES>
+</XPD:HEADER>
+<XPD:BODY>
+<XPD:OBJ name="DocumentElement" type="UMLProject" guid="be2ksrnaw0aM6qIIrC6uYgAA">
+<XPD:ATTR name="Documentation" type="string">1.该系统包括两部分
+a 远程控制服务器
+b 请求控制客户端
+对于远程控制服务器有下列功能：
+1.文件操作（查询，删除，下载，运行）
+2.屏幕操作（监视，鼠标，锁定，解锁）
+对于请求控制客户端，有下列功能：
+1.发起控制请求（文件操作，屏幕操作）
+2.显示控制结果（应答反馈，监视画面显示）
+3.与远程桌面交互（鼠标，加锁，解锁）</XPD:ATTR>
+<XPD:ATTR name="Title" type="string">远程控制系统设计</XPD:ATTR>
+<XPD:ATTR name="Author" type="string">dong</XPD:ATTR>
+</XPD:OBJ>
+</XPD:BODY>
+</XPD:PROJECT>
