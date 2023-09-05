@@ -348,6 +348,18 @@ unsigned __stdcall threadLockDlg(void* arg) {//锁机线程
 
     //全屏显示
     dlg.MoveWindow(rect);
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    if (pText) {
+        CRect rtText;
+        pText->GetWindowRect(rtText);
+        int nWidth = rtText.Width();
+        int x = (rect.right - nWidth) / 2;
+        int nHeight = rtText.Height();
+        int y = (rect.bottom - nHeight) / 2;
+        pText->MoveWindow(x, y, nWidth, nHeight);
+    }
+
+    //置顶
     dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
     //隐藏Windows任务栏
     ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
@@ -373,6 +385,7 @@ unsigned __stdcall threadLockDlg(void* arg) {//锁机线程
         }
     }
     ::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW);
+    ClipCursor(NULL);
     ShowCursor(true);
     dlg.DestroyWindow();
     _endthreadex(0);
