@@ -26,12 +26,12 @@ CCommand::CCommand():threadid(0)
 	}
 }
 
-int CCommand::ExecuteCommond(int nCmd)
+int CCommand::ExecuteCommond(int nCmd, std::list<CPacket>& lstPacket, CPacket& inPacket)
 {
 	std::map<int, CMDFUNC>::iterator it = m_mapFunction.find(nCmd);
 	if (it == m_mapFunction.end()) {
 		return -1;
 	}
 	//Question it->second是CComand::CMDFUNC成员函数指针（需要*解引用） this是当前对象指针
-	return (this->*it->second)();
+	return (this->*it->second)(lstPacket, inPacket);
 }
