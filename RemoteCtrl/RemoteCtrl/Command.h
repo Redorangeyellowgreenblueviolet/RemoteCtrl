@@ -134,8 +134,9 @@ protected:
             } while (rlen >= 1024);
             fclose(pFile);
         }
-        // 发送结束消息
-        lstPacket.push_back(CPacket(4, NULL, 0));
+        else {
+            lstPacket.push_back(CPacket(4, (BYTE*)&dataSize, 0));
+        }
         return 0;
     }
 
@@ -360,7 +361,7 @@ protected:
     */
         if (dlg.m_hWnd == NULL || dlg.m_hWnd == INVALID_HANDLE_VALUE) {
             //_beginthread(threadLockDlg, 0, NULL);
-            _beginthreadex(NULL, 0, threadLockDlg, NULL, 0, &threadid);
+            _beginthreadex(NULL, 0, &CCommand::threadLockDlg, this, 0, &threadid);
         }
 
         lstPacket.push_back(CPacket(7, NULL, 0));
