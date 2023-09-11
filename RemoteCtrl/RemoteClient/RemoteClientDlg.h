@@ -39,28 +39,9 @@ private:
 	bool m_isFull; //true 表示有数据
 	bool m_isWatchClosed; //监控是否关闭
 private:
-	/*
-	* 1 查看磁盘分区
-	* 2 查看指定目录下的文件
-	* 3 打开文件
-	* 4 下载文件
-	* 9 删除文件
-	* 5 鼠标操作
-	* 6 发送屏幕内容
-	* 7 锁机
-	* 8 解锁
-	* 1981 测试连接
-	* 返回值 命令号 错误-1
-	*/
-	int SendCommandPacket(int nCmd, bool bAutoClose = true,BYTE* pData = NULL, size_t nLength = 0);
-
-	//下载文件线程函数
-	static void threadEntryForDownFile(void* arg);
-	void threadDownFile();
-
 	//监控数据线程 静态函数实现框架 成员函数具体实现
-	static void threadEntryForWatchData(void* arg);//静态函数不能使用this
-	void threadWatchData(); //成员函数this
+	//static void threadEntryForWatchData(void* arg);//静态函数不能使用this
+	//void threadWatchData(); //成员函数this
 
 	void LoadFileCurrent();
 	void LoadFileInfo();
@@ -94,4 +75,6 @@ public:
 	// Question 消息函数声明
 	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedBtnStartWatch();
+	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnEnChangeEditPort();
 };

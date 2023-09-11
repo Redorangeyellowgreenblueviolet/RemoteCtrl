@@ -1,4 +1,6 @@
 #pragma once
+#include "framework.h"
+
 class CTool
 {
 public:

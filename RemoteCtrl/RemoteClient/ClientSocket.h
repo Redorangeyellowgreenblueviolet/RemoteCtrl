@@ -99,7 +99,7 @@ public:
 		return nLength + 6;
 	}
 
-	const char* Data() {//整个包
+	const char* Data(std::string& strOut) const {//整个包
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();
 		// 赋值
@@ -120,7 +120,7 @@ public:
 	WORD sCmd; // 控制命令
 	std::string strData; //包数据
 	WORD sSum; //和校验
-	std::string strOut; // 全部
+	//std::string strOut; // 全部
 };
 
 #pragma pack(pop)
@@ -170,19 +170,19 @@ public:
 	}
 
 	// 初始化套接字
-	bool InitSocket(int nIP, int nPort) {
+	bool InitSocket() {
 		if (m_sock != INVALID_SOCKET) 
 			CloseSocket();
 
-		TRACE("addr:%08x, nIP:%08X, nPort:%d\r\n", inet_addr("127.0.0.1"), nIP, nPort);
+		TRACE("addr:%08x, nIP:%08X, nPort:%d\r\n", inet_addr("127.0.0.1"), m_nIP, m_nPort);
 		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) return false;
 
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = htonl(nIP);
-		serv_addr.sin_port = htons(nPort);
+		serv_addr.sin_addr.s_addr = htonl(m_nIP);
+		serv_addr.sin_port = htons(m_nPort);
 		
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox(_T("指定的IP不存在!"));
@@ -245,12 +245,14 @@ public:
 		return send(m_sock, pData, nSize, 0) > 0;
 	}
 
-	bool Send(CPacket& pack) {
+	bool Send(const CPacket& pack) {
 		TRACE("m_sock %d\r\n", m_sock);
 		//Dump((BYTE*)pack.Data(), pack.Size());
 		if (m_sock == -1)
 			return false;
-		return send(m_sock, pack.Data(), pack.Size(), 0) > 0;
+		std::string strOut;
+		pack.Data(strOut);
+		return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
 	}
 
 	bool GetFilePath(std::string strPath) {
@@ -278,17 +280,29 @@ public:
 		m_sock = INVALID_SOCKET;
 	}
 
+	void UpdateAddress(int nIP, int nPort) {
+		m_nIP = nIP;
+		m_nPort = nPort;
+	}
+
 private:
+	int m_nIP; //地址
+	int m_nPort; //端口
+
 	std::vector<char> m_buffer;
 	static CClientSocket* m_instance;
 	SOCKET m_sock;
 	CPacket m_packet;
 
 	CClientSocket& operator=(const CClientSocket& s) {}
-	CClientSocket(const CClientSocket& s) {
+	CClientSocket(const CClientSocket& s)
+	{
 		m_sock = s.m_sock;
+		m_nIP = s.m_nIP;
+		m_nPort = s.m_nPort;
 	}
-	CClientSocket() {
+	CClientSocket() : m_nIP(INADDR_ANY), m_nPort(0) 
+	{
 		if (!InitSockEnv())
 		{
 			//Question
