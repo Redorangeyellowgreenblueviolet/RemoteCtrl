@@ -87,7 +87,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
 	//Question 消息注册
-	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::OnSendPacket)
+	//ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::OnSendPacket)
 	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemoteClientDlg::OnBnClickedBtnStartWatch)
 	ON_WM_TIMER()
 	ON_EN_CHANGE(IDC_EDIT_PORT, &CRemoteClientDlg::OnEnChangeEditPort)
@@ -138,8 +138,6 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	UpdateData(FALSE);
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
 	m_dlgStatus.ShowWindow(SW_HIDE);
-
-	m_isFull = FALSE;
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -418,44 +416,10 @@ void CRemoteClientDlg::OnRunFile()
 	}
 }
 
-LRESULT CRemoteClientDlg::OnSendPacket(WPARAM wParam, LPARAM lParam)
-{//自定义消息响应函数
-	int ret = 0;
-	int nCmd = wParam >> 1;
-	switch (nCmd)
-	{
-	case 4: {
-		CString strFile = (LPCSTR)lParam;
-		// 31位表示nCmd 1位表示autoClose
-		ret = CClientController::getInstance()->SendCommandPacket(nCmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
-	}
-		break;
-	case 5:{
-		ret = CClientController::getInstance()->SendCommandPacket(nCmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
-	}
-	break;
-	case 6:
-	case 7:
-	case 8:{
-		ret = CClientController::getInstance()->SendCommandPacket(nCmd, wParam & 1);
-	}
-		  break;
-	default:
-		ret = -1;
-		break;
-	}
-
-	
-	return ret;
-}
-
-
 void CRemoteClientDlg::OnBnClickedBtnStartWatch()
 {
 	CClientController::getInstance()->StartWatchScreen();
 }
-
-
 
 
 void CRemoteClientDlg::OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult)
@@ -466,8 +430,6 @@ void CRemoteClientDlg::OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pR
 	CClientController* pController = CClientController::getInstance();
 	pController->UpdateAddress(m_serv_addr, _ttoi(m_nPort));
 	*pResult = 0;
-
-
 }
 
 

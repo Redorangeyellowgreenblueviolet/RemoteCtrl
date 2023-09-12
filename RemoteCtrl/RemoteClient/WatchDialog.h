@@ -18,11 +18,20 @@ public:
 public:
 	int m_nObjWidth;
 	int m_nObjHeight;
+	bool m_isFull; //true 表示有数据
+
+	void SetImageStatus(bool isFull = FALSE) {
+		m_isFull = isFull;
+	}
+	bool isFull() const {
+		return m_isFull;
+	}
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 
 	DECLARE_MESSAGE_MAP()
+
 public:
 	CPoint UserPoint2RemoteSreenPoint(CPoint& point, bool isScreen = FALSE);
 

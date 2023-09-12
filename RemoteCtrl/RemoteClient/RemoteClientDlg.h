@@ -7,7 +7,7 @@
 #include "StatusDlg.h"
 
 // 发送数据包信息
-#define WM_SEND_PACKET (WM_USER + 1)
+//#define WM_SEND_PACKET (WM_USER + 1)
 
 // CRemoteClientDlg 对话框
 class CRemoteClientDlg : public CDialogEx
@@ -25,18 +25,13 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
 public:
-	bool isFull() const {
-		return m_isFull;
-	}
-	void SetImageStatus(bool isFull = FALSE) {
-		m_isFull = isFull;
-	}
+
+
 	CImage& GetImage() {
 		return m_image;
 	}
 private:
 	CImage m_image; //缓存
-	bool m_isFull; //true 表示有数据
 	bool m_isWatchClosed; //监控是否关闭
 private:
 	//监控数据线程 静态函数实现框架 成员函数具体实现
@@ -73,7 +68,7 @@ public:
 	afx_msg void OnDeleteFile();
 	afx_msg void OnRunFile();
 	// Question 消息函数声明
-	afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);
+	//afx_msg LRESULT OnSendPacket(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedBtnStartWatch();
 	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnEnChangeEditPort();

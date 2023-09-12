@@ -57,48 +57,17 @@ public:
 	* 1981 测试连接
 	* 返回值 命令号 错误-1
 	*/
-	int SendCommandPacket(int nCmd, bool bAutoClose = TRUE, BYTE* pData = NULL, size_t nLength = 0)
-	{
-		CClientSocket* pClient = CClientSocket::getInstance();
-		if (pClient->InitSocket() == FALSE)
-			return FALSE;
-		pClient->Send(CPacket(nCmd, pData, nLength));
-		int cmd = DealCommand();
-		if (bAutoClose) {
-			CloseSocket();
-		}
-		return cmd;
-	}
+	int SendCommandPacket(int nCmd, bool bAutoClose = TRUE, BYTE* pData = NULL, size_t nLength = 0);
 
 	int GetImage(CImage& image) {
 		CClientSocket* pClient = CClientSocket::getInstance();
 		return CTool::Bytes2Image(image, pClient->GetPacket().strData);
 	}
 
-	int DownFile(CString strPath) {
-		CFileDialog dlg(FALSE, NULL, strPath, 
-			OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, &m_remoteDlg);
-		if (dlg.DoModal() == IDOK) {
-			// 添加线程 防止大文件卡死
-			m_strRemote = strPath;
-			m_strLocal = dlg.GetPathName();
-			m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadFileEntry, 0, this);
-			if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {
-				return -1;
-			}
-			// 大文件传输 避免卡死，通过线程  用户知道进度
-			m_remoteDlg.BeginWaitCursor();
-			m_statusDlg.m_info.SetWindowText(_T("命令正在执行"));
-			m_statusDlg.ShowWindow(SW_SHOW);
-			m_statusDlg.CenterWindow(&m_remoteDlg);
-			m_statusDlg.SetActiveWindow();
-
-		}
-		
-		return 0;
-	}
-
+	int DownFile(CString strPath);
 	void StartWatchScreen();
+
+
 protected:
 	void threadDownloadFile();
 	static void threadDownloadFileEntry(void* arg);
@@ -176,15 +145,17 @@ private:
 	unsigned int m_nThreadID;
 
 	static CClientController* m_instance;
+	
+
 	class CHelper {
 	public:
 		CHelper() {
-			CClientController::getInstance();
+			//CClientController::getInstance();
 		}
 		~CHelper() {
 			CClientController::releaseInstance();
 		}
 	};
-
+	static CHelper m_helper;
 };
 

@@ -6,6 +6,7 @@
 std::map<UINT, CClientController::MSGFUNC> CClientController::m_mapFunc;
 CClientController* CClientController::m_instance = NULL;
 
+CClientController::CHelper CClientController::m_helper;
 
 CClientController* CClientController::getInstance()
 {
@@ -29,7 +30,7 @@ CClientController* CClientController::getInstance()
         }
 
     }
-    return nullptr;
+    return m_instance;
 }
 
 int CClientController::InitController()
@@ -50,18 +51,55 @@ LRESULT CClientController::_SendMessage(MSG msg)
     HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (hEvent == NULL) return -2;
     MSGINFO info(msg);
-    PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM)&info, (LPARAM)hEvent);
+    (m_nThreadID, WM_SEND_MESSAGE, (WPARAM)&info, (LPARAM)hEvent);
     WaitForSingleObject(hEvent, -1);
     return info.result;
+}
+
+int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
+{
+    CClientSocket* pClient = CClientSocket::getInstance();
+    if (pClient->InitSocket() == FALSE)
+        return FALSE;
+    pClient->Send(CPacket(nCmd, pData, nLength));
+    int cmd = DealCommand();
+    if (bAutoClose) {
+        CloseSocket();
+    }
+    return cmd;
+}
+
+int CClientController::DownFile(CString strPath)
+{
+    CFileDialog dlg(FALSE, NULL, strPath,
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, &m_remoteDlg);
+    if (dlg.DoModal() == IDOK) {
+        // 添加线程 防止大文件卡死
+        m_strRemote = strPath;
+        m_strLocal = dlg.GetPathName();
+        m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadFileEntry, 0, this);
+        if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {
+            return -1;
+        }
+        // 大文件传输 避免卡死，通过线程  用户知道进度
+        m_remoteDlg.BeginWaitCursor();
+        m_statusDlg.m_info.SetWindowText(_T("命令正在执行"));
+        m_statusDlg.ShowWindow(SW_SHOW);
+        m_statusDlg.CenterWindow(&m_remoteDlg);
+        m_statusDlg.SetActiveWindow();
+
+    }
+
+    return 0;
 }
 
 void CClientController::StartWatchScreen()
 {
     m_isWatchClosed = FALSE;
     // 按下监控按钮
-    CWatchDialog dlg(&m_remoteDlg);
+    //m_watchDlg.SetParent(&m_remoteDlg);
     m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchScreenEntry, 0, this);
-    dlg.DoModal();
+    m_watchDlg.DoModal();
     m_isWatchClosed = TRUE;
     WaitForSingleObject(m_hThreadWatch, 500);
 }
@@ -125,12 +163,12 @@ void CClientController::threadWatchScreen()
 {
     Sleep(50);
     while (m_isWatchClosed == FALSE) {//TODO 存在线程结束导致的问题
-        if (m_remoteDlg.isFull() == FALSE) { //更新数据到缓存
+        if (m_watchDlg.isFull() == FALSE) { //更新数据到缓存
             int ret = SendCommandPacket(6);
             TRACE("ret:%d\r\n", ret);
             if (ret == 6) {
                 if (GetImage(m_remoteDlg.GetImage()) == 0) {
-                    m_remoteDlg.SetImageStatus(TRUE);
+                    m_watchDlg.SetImageStatus(TRUE);
                 }
                 else
                 {
