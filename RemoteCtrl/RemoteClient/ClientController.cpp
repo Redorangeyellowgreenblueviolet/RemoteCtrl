@@ -51,7 +51,7 @@ LRESULT CClientController::_SendMessage(MSG msg)
     HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (hEvent == NULL) return -2;
     MSGINFO info(msg);
-    (m_nThreadID, WM_SEND_MESSAGE, (WPARAM)&info, (LPARAM)hEvent);
+    PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM)&info, (LPARAM)hEvent);
     WaitForSingleObject(hEvent, -1);
     return info.result;
 }
@@ -61,7 +61,10 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData,
     CClientSocket* pClient = CClientSocket::getInstance();
     if (pClient->InitSocket() == FALSE)
         return FALSE;
-    pClient->Send(CPacket(nCmd, pData, nLength));
+    HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    //pClient->Send(CPacket(nCmd, pData, nLength, hEvent));
+    //TODO: 将直接发送改为放到队列
+
     int cmd = DealCommand();
     if (bAutoClose) {
         CloseSocket();

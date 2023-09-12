@@ -3,11 +3,9 @@
 #include "framework.h"
 #include <string>
 #include <vector>
+#include <list>
+#include <map>
 #pragma warning(disable:4996)
-
-
-void Dump(BYTE* pData, size_t nSize);
-
 
 
 #pragma pack(push)
@@ -15,9 +13,9 @@ void Dump(BYTE* pData, size_t nSize);
 // 设为 1 字节对齐 去除补全位
 class CPacket {
 public:
-	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0), m_hEvent(INVALID_HANDLE_VALUE) {}
 
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent) {
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
 		sCmd = nCmd;
@@ -32,6 +30,7 @@ public:
 		for (size_t j = 0; j < strData.size(); j++) {
 			sSum += strData[j] & 0xFF;
 		}
+		m_hEvent = hEvent;
 	}
 
 	CPacket(const CPacket& pack) {
@@ -40,6 +39,7 @@ public:
 		sCmd = pack.sCmd;
 		strData = pack.strData;
 		sSum = pack.sSum;
+		m_hEvent = pack.m_hEvent;
 	}
 	CPacket& operator=(const CPacket& pack) {
 		if (this != &pack) { //Qu
@@ -48,11 +48,12 @@ public:
 			sCmd = pack.sCmd;
 			strData = pack.strData;
 			sSum = pack.sSum;
+			m_hEvent = pack.m_hEvent;
 		}
 		return *this;
 	}
 
-	CPacket(const BYTE* pData, size_t& nSize) {
+	CPacket(const BYTE* pData, size_t& nSize):m_hEvent(INVALID_HANDLE_VALUE){
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -120,7 +121,7 @@ public:
 	WORD sCmd; // 控制命令
 	std::string strData; //包数据
 	WORD sSum; //和校验
-	//std::string strOut; // 全部
+	HANDLE m_hEvent;
 };
 
 #pragma pack(pop)
@@ -208,6 +209,7 @@ public:
 		//Question 之前接收的只处理了一个包，清空 index置0 导致丢包
 		//memset(buffer, 0, BUFFER_SIZE);
 		//每次需要保留上次的位置 可以用静态变量
+		//TODO: 多线程接收出现问题
 		char* buffer = m_buffer.data();
 		static size_t index = 0;
 		while (true) {
@@ -286,6 +288,8 @@ public:
 	}
 
 private:
+	std::list<CPacket> m_lstSend; //发送包链表
+	std::map<HANDLE, std::list<CPacket>> m_mapAck;
 	int m_nIP; //地址
 	int m_nPort; //端口
 
@@ -314,8 +318,12 @@ private:
 	}
 	~CClientSocket() {
 		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
+
+	static void threadEntry(void* arg);
+	void threadFunc();
 
 	// 初始化套接字环境
 	bool InitSockEnv() {

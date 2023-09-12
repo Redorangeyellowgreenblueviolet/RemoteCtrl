@@ -25,7 +25,6 @@ public:
 	int Invoke(CWnd*& pMainWnd);
 	// 发送消息
 	LRESULT _SendMessage(MSG msg);
-
 	// 更新地址
 	void UpdateAddress(int nIP, int nPort) {
 		CClientSocket::getInstance()->UpdateAddress(nIP, nPort);
