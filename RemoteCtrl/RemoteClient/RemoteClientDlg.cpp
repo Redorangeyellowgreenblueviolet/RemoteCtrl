@@ -201,13 +201,14 @@ void CRemoteClientDlg::OnBnClickedBtnTest()
 
 void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 {// 磁盘分区
-	int ret = CClientController::getInstance()->SendCommandPacket(1);
+	std::list<CPacket> lstPackets;
+	int ret = CClientController::getInstance()->SendCommandPacket(1, true, NULL, 0, &lstPackets);
 	if (ret == -1) {
 		AfxMessageBox(_T("命令处理失败!"));
 		return;
 	}
-	CClientSocket* pClient = CClientSocket::getInstance();
-	std::string drivers = pClient->GetPacket().strData;
+
+	std::string drivers = lstPackets.front().strData;
 	std::string dr;
 	m_Tree.DeleteAllItems();
 
@@ -297,38 +298,28 @@ void CRemoteClientDlg::LoadFileInfo()
 	//获取路径
 	CString strPath = GetPath(hTreeSelected);
 	//发送命令
-	int nCmd = CClientController::getInstance()->SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
-	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
-
-	
-	int count = 0;
-	while (pInfo->HasNext) {
-		TRACE("[%s] isdir %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
-		if (pInfo->IsDirectory) {//目录
-			if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
-				int cmd = CClientController::getInstance()->DealCommand();
-				TRACE("ack:%d\r\n", cmd);
-				if (cmd < 0)break;
-				pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+	std::list<CPacket> lstPackets;
+	int nCmd = CClientController::getInstance()->SendCommandPacket(
+		2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength(), &lstPackets);
+	if (lstPackets.size() > 0) {
+		std::list<CPacket>::iterator it = lstPackets.begin();
+		for (; it != lstPackets.end(); it++) {
+			PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
+			if (pInfo->HasNext == false) {
 				continue;
 			}
-			HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-			m_Tree.InsertItem("", hTemp, TVI_LAST);
+			if (pInfo->IsDirectory) {//目录
+				if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
+					continue;
+				}
+				HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
+				m_Tree.InsertItem("", hTemp, TVI_LAST);
+			}
+			else { //文件
+				m_List.InsertItem(0, pInfo->szFileName);
+			}
 		}
-		else { //文件
-			m_List.InsertItem(0, pInfo->szFileName);
-		}
-		
-		count++;
-
-		int cmd = CClientController::getInstance()->DealCommand();
-		TRACE("ack:%d\r\n", cmd);
-		if (cmd < 0)break;
-		pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
 	}
-	TRACE("Client count %d\r\n", count);
-
-	//CClientController::getInstance()->CloseSocket();
 }
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)

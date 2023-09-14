@@ -33,26 +33,22 @@ bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks
 	if (m_sock == INVALID_SOCKET) {
 		/*if (InitSocket() == FALSE)
 			return FALSE;*/
-		_beginthread(&CClientSocket::threadEntry, 0, this);
+		m_hThread = (HANDLE)_beginthread(&CClientSocket::threadEntry, 0, this);
 	}
-
-	m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>>(pack.m_hEvent, lstPacks));
+	TRACE("cmd:%d event:%08X threadID:%d\r\n", pack.sCmd, pack.m_hEvent, GetCurrentThreadId());
+	m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>&>(pack.m_hEvent, lstPacks));
 	m_mapAutoClosed.insert(std::pair<HANDLE, bool>(pack.m_hEvent, isAutoClosed));
 	//问题 不是原子操作
 	m_lstSend.push_back(pack);
 	TRACE("scmd:%d\r\n", pack.sCmd);
 	WaitForSingleObject(pack.m_hEvent, INFINITE);
-	std::map<HANDLE, std::list<CPacket>>::iterator it;
+	std::map<HANDLE, std::list<CPacket>&>::iterator it;
 	it = m_mapAck.find(pack.m_hEvent);
 	if (it != m_mapAck.end()) {
-		std::list<CPacket>::iterator i;
-		for (i = it->second.begin(); i != it->second.end(); i++) {
-			lstPacks.push_back(*i);
-		}
 		m_mapAck.erase(it);
-		return TRUE;
+		return true;
 	}
-	return FALSE;
+	return false;
 }
 
 bool CClientSocket::Send(const CPacket& pack)
@@ -70,6 +66,7 @@ void CClientSocket::threadEntry(void* arg)
 {
 	CClientSocket* thiz = (CClientSocket*)arg;
 	thiz->threadFunc();
+	_endthread();
 }
 
 void CClientSocket::threadFunc()
@@ -87,41 +84,47 @@ void CClientSocket::threadFunc()
 				TRACE(_T("发送失败\r\n"));
 				continue;
 			}
-
 			//应答队列
-			std::map<HANDLE, std::list<CPacket>>::iterator it_ack 
+			std::map<HANDLE, std::list<CPacket>&>::iterator it_ack 
 				= m_mapAck.find(head.m_hEvent);
-			//自动关闭
-			std::map<HANDLE, bool>::iterator it_auto = 
-				m_mapAutoClosed.find(head.m_hEvent);
+			if (it_ack != m_mapAck.end()) {
+				//自动关闭
+				std::map<HANDLE, bool>::iterator it_auto =
+					m_mapAutoClosed.find(head.m_hEvent);
 
-			do {
-				int len = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
-				TRACE("|| len:%d, index:%d\r\n", len, index);
-				if (len > 0 || index > 0) {
-					index += len;
-					size_t size = (size_t)index;
-					CPacket pack((BYTE*)pBuffer, size);
+				do {
+					int len = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
+					TRACE("|| len:%d, index:%d\r\n", len, index);
+					if (len > 0 || index > 0) {
+						index += len;
+						size_t size = (size_t)index;
+						CPacket pack((BYTE*)pBuffer, size);
 
-					if (size > 0) {
-						TRACE("size:%d, len:%d, index:%d\r\n", size, len, index);
-						//通知对应事件
-						pack.m_hEvent = head.m_hEvent;
-						TRACE("recv.shead:%x, cmd:%d\r\n", pack.sHead, pack.sCmd);
-						it_ack->second.push_back(pack);
-						memmove(pBuffer, pBuffer + size, index - size);
-						index -= size;
-						if (it_auto->second) {
-							SetEvent(head.m_hEvent);
+						if (size > 0) {
+							TRACE("size:%d, len:%d, index:%d\r\n", size, len, index);
+							//通知对应事件
+							pack.m_hEvent = head.m_hEvent;
+							TRACE("recv.shead:%x, cmd:%d\r\n", pack.sHead, pack.sCmd);
+							it_ack->second.push_back(pack);
+							memmove(pBuffer, pBuffer + size, index - size);
+							index -= size;
+							if (it_auto->second) {//问题
+								CloseSocket();
+								SetEvent(head.m_hEvent);
+								m_mapAutoClosed.erase(it_auto);
+								break;
+							}
 						}
 					}
-				}
-				else if (len <= 0 && index <= 0) {
-					TRACE("&& len:%d, index:%d\r\n", len, index);
-					CloseSocket();
-					SetEvent(head.m_hEvent); //等待服务端关闭，再通知完成
-				}
-			} while (it_auto->second == false);
+					else if (len <= 0 && index <= 0) {
+						TRACE("&& len:%d, index:%d\r\n", len, index);
+						CloseSocket();
+						SetEvent(head.m_hEvent); //等待服务端关闭，再通知完成
+						m_mapAutoClosed.erase(it_auto);
+						break;
+					}
+				} while (it_auto->second == false);
+			}
 			m_lstSend.pop_front();
 			InitSocket();
 		}

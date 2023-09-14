@@ -65,11 +65,13 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData,
     if (plstPacks == NULL) {
         plstPacks = &lstPacks;
     }
+
     TRACE("ncmd:%d, datalen:%d\r\n", nCmd, nLength);
     CPacket pack(nCmd, pData, nLength, hEvent);
     TRACE("head %x\r\n", pack.sHead);
-    pClient->SendPacket(pack, *plstPacks);
-    CloseHandle(hEvent);
+    pClient->SendPacket(pack, *plstPacks, bAutoClose);
+    if(hEvent!=NULL)
+        CloseHandle(hEvent);
 
     if (plstPacks->size() > 0) {
         return plstPacks->front().sCmd;

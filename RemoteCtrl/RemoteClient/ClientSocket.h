@@ -276,17 +276,19 @@ public:
 	}
 
 private:
-	bool m_bAutoClosed;
-	std::list<CPacket> m_lstSend; //发送包链表
-	std::map<HANDLE, std::list<CPacket>> m_mapAck;
-	std::map<HANDLE, bool> m_mapAutoClosed;
+	
 	int m_nIP; //地址
 	int m_nPort; //端口
-
-	std::vector<char> m_buffer;
-	static CClientSocket* m_instance;
 	SOCKET m_sock;
+	bool m_bAutoClosed;
+	HANDLE m_hThread;
+
 	CPacket m_packet;
+	static CClientSocket* m_instance;
+	std::vector<char> m_buffer;
+	std::list<CPacket> m_lstSend; //发送包链表
+	std::map<HANDLE, std::list<CPacket>&> m_mapAck;
+	std::map<HANDLE, bool> m_mapAutoClosed;
 
 	CClientSocket& operator=(const CClientSocket& s) {}
 	CClientSocket(const CClientSocket& s)
@@ -296,7 +298,7 @@ private:
 		m_nIP = s.m_nIP;
 		m_nPort = s.m_nPort;
 	}
-	CClientSocket() : m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClosed(TRUE)
+	CClientSocket() : m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClosed(TRUE), m_hThread(INVALID_HANDLE_VALUE)
 	{
 		if (!InitSockEnv())
 		{
@@ -304,13 +306,20 @@ private:
 			MessageBox(NULL, _T("无法初始化套接字环境."), _T("初始化错误."), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
+		//m_lstSend.clear();
+		//m_mapAck.clear();
+		//m_mapAutoClosed.clear();
 		m_buffer.resize(BUFFER_SIZE);
 		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 	~CClientSocket() {
+		m_lstSend.clear();
+		m_mapAck.clear();
+		m_mapAutoClosed.clear();
 		closesocket(m_sock);
 		m_sock = INVALID_SOCKET;
 		WSACleanup();
+		WaitForSingleObject(m_hThread, 100);
 	}
 
 
