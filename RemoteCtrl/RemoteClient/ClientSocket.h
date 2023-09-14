@@ -5,6 +5,7 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <mutex>
 #pragma warning(disable:4996)
 
 
@@ -153,7 +154,7 @@ typedef struct file_info {
 	bool HasNext; //是否有后续 0 没有 1有
 }FILEINFO, * PFILEINFO;
 
-#define BUFFER_SIZE 2048000
+#define BUFFER_SIZE 4096000
 
 std::string GetErrInfo(int wsaErrno);
 
@@ -171,34 +172,7 @@ public:
 	}
 
 	// 初始化套接字
-	bool InitSocket() {
-		if (m_sock != INVALID_SOCKET) 
-			CloseSocket();
-
-		TRACE("addr:%08x, nIP:%08X, nPort:%d\r\n", inet_addr("127.0.0.1"), m_nIP, m_nPort);
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
-		if (m_sock == -1) return false;
-
-		sockaddr_in serv_addr;
-		memset(&serv_addr, 0, sizeof(serv_addr));
-		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = htonl(m_nIP);
-		serv_addr.sin_port = htons(m_nPort);
-		
-		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
-			AfxMessageBox(_T("指定的IP不存在!"));
-			return false;
-		}
-		
-		// connect
-		if (connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
-			// Question
-			AfxMessageBox(_T("连接失败"));
-			TRACE("连接失败: %d %s.\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
-			return false;
-		}
-		return true;
-	}
+	bool InitSocket();
 
 
 	// 内存释放 可能收到服务端的多个包 不能每次delete
@@ -282,6 +256,7 @@ private:
 	SOCKET m_sock;
 	bool m_bAutoClosed;
 	HANDLE m_hThread;
+	std::mutex m_lock;
 
 	CPacket m_packet;
 	static CClientSocket* m_instance;

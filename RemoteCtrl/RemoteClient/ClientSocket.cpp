@@ -28,24 +28,57 @@ std::string GetErrInfo(int wsaErrno) { //获得错误信息
 	return ret;
 }
 
+bool CClientSocket::InitSocket()
+{
+	if (m_sock != INVALID_SOCKET)
+		CloseSocket();
+
+	TRACE("addr:%08x, nIP:%08X, nPort:%d\r\n", inet_addr("127.0.0.1"), m_nIP, m_nPort);
+	m_sock = socket(PF_INET, SOCK_STREAM, 0);
+	if (m_sock == -1) return false;
+
+	sockaddr_in serv_addr;
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(m_nIP);
+	serv_addr.sin_port = htons(m_nPort);
+
+	if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
+		AfxMessageBox(_T("指定的IP不存在!"));
+		return false;
+	}
+
+	// connect
+	if (connect(m_sock, (sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
+		// Question
+		AfxMessageBox(_T("连接失败"));
+		TRACE("连接失败: %d %s.\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
+		return false;
+	}
+	return true;
+}
+
 bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, BOOL isAutoClosed)
 {
-	if (m_sock == INVALID_SOCKET) {
-		/*if (InitSocket() == FALSE)
-			return FALSE;*/
+	if (m_sock == INVALID_SOCKET && m_hThread == INVALID_HANDLE_VALUE) {
 		m_hThread = (HANDLE)_beginthread(&CClientSocket::threadEntry, 0, this);
+		TRACE("start client socket thread.\r\n");
 	}
 	TRACE("cmd:%d event:%08X threadID:%d\r\n", pack.sCmd, pack.m_hEvent, GetCurrentThreadId());
+	//线程安全
+	m_lock.lock();
 	m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>&>(pack.m_hEvent, lstPacks));
 	m_mapAutoClosed.insert(std::pair<HANDLE, bool>(pack.m_hEvent, isAutoClosed));
-	//问题 不是原子操作
 	m_lstSend.push_back(pack);
+	m_lock.unlock();
 	TRACE("scmd:%d\r\n", pack.sCmd);
 	WaitForSingleObject(pack.m_hEvent, INFINITE);
 	std::map<HANDLE, std::list<CPacket>&>::iterator it;
 	it = m_mapAck.find(pack.m_hEvent);
 	if (it != m_mapAck.end()) {
+		m_lock.lock();
 		m_mapAck.erase(it);
+		m_lock.unlock();
 		return true;
 	}
 	return false;
@@ -94,8 +127,8 @@ void CClientSocket::threadFunc()
 
 				do {
 					int len = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
-					TRACE("|| len:%d, index:%d\r\n", len, index);
-					if (len > 0 || index > 0) {
+					TRACE("read len:%d, index:%d\r\n", len, index);
+					if ((len > 0) || (index > 0)) {
 						index += len;
 						size_t size = (size_t)index;
 						CPacket pack((BYTE*)pBuffer, size);
@@ -125,7 +158,9 @@ void CClientSocket::threadFunc()
 					}
 				} while (it_auto->second == false);
 			}
+			m_lock.lock();
 			m_lstSend.pop_front();
+			m_lock.unlock();
 			InitSocket();
 		}
 		Sleep(1);
