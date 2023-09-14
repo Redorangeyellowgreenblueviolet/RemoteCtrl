@@ -8,6 +8,7 @@
 #include <mutex>
 #pragma warning(disable:4996)
 
+#define WM_SEND_PACK (WM_USER+1)
 
 #pragma pack(push)
 #pragma pack(1)
@@ -250,7 +251,8 @@ public:
 	}
 
 private:
-	
+	typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
+	std::map<UINT, MSGFUNC> m_mapFunc;
 	int m_nIP; //地址
 	int m_nPort; //端口
 	SOCKET m_sock;
@@ -272,6 +274,19 @@ private:
 		m_sock = s.m_sock;
 		m_nIP = s.m_nIP;
 		m_nPort = s.m_nPort;
+		m_hThread = INVALID_HANDLE_VALUE;
+		struct
+		{
+			UINT message;
+			MSGFUNC func;
+		}funcs[]{
+			{WM_SEND_PACK,&CClientSocket::SendPacket_msg},
+			{0,NULL}
+		};
+		for (int i = 0; funcs[i].message != 0; i++) {
+			m_mapFunc.insert(std::pair<UINT, MSGFUNC>(
+				funcs[i].message, funcs[i].func));
+		}
 	}
 	CClientSocket() : m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClosed(TRUE), m_hThread(INVALID_HANDLE_VALUE)
 	{
@@ -306,10 +321,11 @@ private:
 	}
 
 	bool Send(const CPacket& pack);
-
+	void SendPacket_msg(UINT nMsg, WPARAM wParam, LPARAM lParam);
 
 	static void threadEntry(void* arg);
 	void threadFunc();
+	void threadFunc_msg();
 
 	// 初始化套接字环境
 	bool InitSockEnv() {

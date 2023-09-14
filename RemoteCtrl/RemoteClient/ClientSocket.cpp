@@ -84,6 +84,37 @@ bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks
 	return false;
 }
 
+void CClientSocket::threadFunc_msg()
+{
+	MSG msg;
+	while (::GetMessage(&msg, NULL, 0, 0)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+		if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
+			(this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
+		}
+
+	}
+}
+
+void CClientSocket::SendPacket_msg(UINT nMsg, WPARAM wParam, LPARAM lParam)
+{//TODO: 消息数据结构: 数据 长度 模式  回调消息的数据结构:HWND MESSAGE
+	if (InitSocket()) {
+		int ret = send(m_sock, (char*)wParam, (int)lParam, 0);
+		if (ret > 0) {
+
+		}
+		else
+		{
+
+		}
+	}
+	else {
+
+	}
+}
+
+
 bool CClientSocket::Send(const CPacket& pack)
 {
 	TRACE("m_sock %d\r\n", m_sock);
@@ -120,11 +151,10 @@ void CClientSocket::threadFunc()
 			//应答队列
 			std::map<HANDLE, std::list<CPacket>&>::iterator it_ack 
 				= m_mapAck.find(head.m_hEvent);
+			//自动关闭
+			std::map<HANDLE, bool>::iterator it_auto =
+				m_mapAutoClosed.find(head.m_hEvent);
 			if (it_ack != m_mapAck.end()) {
-				//自动关闭
-				std::map<HANDLE, bool>::iterator it_auto =
-					m_mapAutoClosed.find(head.m_hEvent);
-
 				do {
 					int len = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
 					TRACE("read len:%d, index:%d\r\n", len, index);
@@ -144,7 +174,6 @@ void CClientSocket::threadFunc()
 							if (it_auto->second) {//问题
 								CloseSocket();
 								SetEvent(head.m_hEvent);
-								m_mapAutoClosed.erase(it_auto);
 								break;
 							}
 						}
@@ -153,13 +182,14 @@ void CClientSocket::threadFunc()
 						TRACE("&& len:%d, index:%d\r\n", len, index);
 						CloseSocket();
 						SetEvent(head.m_hEvent); //等待服务端关闭，再通知完成
-						m_mapAutoClosed.erase(it_auto);
+						
 						break;
 					}
 				} while (it_auto->second == false);
 			}
 			m_lock.lock();
 			m_lstSend.pop_front();
+			m_mapAutoClosed.erase(head.m_hEvent);
 			m_lock.unlock();
 			InitSocket();
 		}
