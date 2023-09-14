@@ -19,12 +19,18 @@ public:
 	int m_nObjWidth;
 	int m_nObjHeight;
 	bool m_isFull; //true 表示有数据
+	CImage m_image; //缓存
 
 	void SetImageStatus(bool isFull = FALSE) {
 		m_isFull = isFull;
 	}
 	bool isFull() const {
 		return m_isFull;
+	}
+
+
+	CImage& GetImage() {
+		return m_image;
 	}
 
 protected:

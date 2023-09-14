@@ -26,12 +26,8 @@ protected:
 
 public:
 
-
-	CImage& GetImage() {
-		return m_image;
-	}
 private:
-	CImage m_image; //缓存
+
 	bool m_isWatchClosed; //监控是否关闭
 private:
 	//监控数据线程 静态函数实现框架 成员函数具体实现

@@ -275,7 +275,7 @@ void CRemoteClientDlg::LoadFileCurrent()
 	}
 	TRACE("Client count %d\r\n", count);
 
-	CClientController::getInstance()->CloseSocket();
+	//CClientController::getInstance()->CloseSocket();
 }
 
 void CRemoteClientDlg::LoadFileInfo()
@@ -328,7 +328,7 @@ void CRemoteClientDlg::LoadFileInfo()
 	}
 	TRACE("Client count %d\r\n", count);
 
-	CClientController::getInstance()->CloseSocket();
+	//CClientController::getInstance()->CloseSocket();
 }
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)

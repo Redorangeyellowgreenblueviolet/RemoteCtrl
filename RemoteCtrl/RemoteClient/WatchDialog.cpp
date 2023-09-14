@@ -78,26 +78,17 @@ void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == 0) {
-		CClientController* pController = CClientController::getInstance();
 		if (isFull()) {
-			//直接复制可能导致分辨率不匹配
-			//pParent->GetImage().BitBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, SRCCOPY);
 			
 			CRect rect;
 			m_picture.GetWindowRect(rect);
-			CImage image;
-			pController->GetImage(image);
-			if (m_nObjWidth == -1) {
-				m_nObjWidth = image.GetWidth();
-			}
-			if (m_nObjHeight == -1) {
-				m_nObjHeight = image.GetHeight();
-			}
+			m_nObjWidth = m_image.GetWidth();
+			m_nObjHeight = m_image.GetHeight();
 
-			image.StretchBlt(
+			m_image.StretchBlt(
 				m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
 			m_picture.InvalidateRect(NULL);
-			image.Destroy();
+			m_image.Destroy();
 			SetImageStatus(FALSE);
 		}
 	}

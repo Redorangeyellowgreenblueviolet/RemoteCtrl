@@ -153,7 +153,7 @@ typedef struct file_info {
 	bool HasNext; //是否有后续 0 没有 1有
 }FILEINFO, * PFILEINFO;
 
-#define BUFFER_SIZE 1024000
+#define BUFFER_SIZE 2048000
 
 std::string GetErrInfo(int wsaErrno);
 
@@ -240,22 +240,8 @@ public:
 	*
 	* 校验 和/CRC
 	*/
-	bool Send(const char* pData, int nSize) {
-		if (m_sock == -1) {
-			return false;
-		}
-		return send(m_sock, pData, nSize, 0) > 0;
-	}
 
-	bool Send(const CPacket& pack) {
-		TRACE("m_sock %d\r\n", m_sock);
-		//Dump((BYTE*)pack.Data(), pack.Size());
-		if (m_sock == -1)
-			return false;
-		std::string strOut;
-		pack.Data(strOut);
-		return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
-	}
+	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, BOOL isAutoClosed = TRUE);
 
 	bool GetFilePath(std::string strPath) {
 		if (m_packet.sCmd == 2 || m_packet.sCmd == 3 || m_packet.sCmd == 4) {
@@ -283,13 +269,17 @@ public:
 	}
 
 	void UpdateAddress(int nIP, int nPort) {
-		m_nIP = nIP;
-		m_nPort = nPort;
+		if (m_nIP != nIP || m_nPort != nPort) {
+			m_nIP = nIP;
+			m_nPort = nPort;
+		}
 	}
 
 private:
+	bool m_bAutoClosed;
 	std::list<CPacket> m_lstSend; //发送包链表
 	std::map<HANDLE, std::list<CPacket>> m_mapAck;
+	std::map<HANDLE, bool> m_mapAutoClosed;
 	int m_nIP; //地址
 	int m_nPort; //端口
 
@@ -301,11 +291,12 @@ private:
 	CClientSocket& operator=(const CClientSocket& s) {}
 	CClientSocket(const CClientSocket& s)
 	{
+		m_bAutoClosed = s.m_bAutoClosed;
 		m_sock = s.m_sock;
 		m_nIP = s.m_nIP;
 		m_nPort = s.m_nPort;
 	}
-	CClientSocket() : m_nIP(INADDR_ANY), m_nPort(0) 
+	CClientSocket() : m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClosed(TRUE)
 	{
 		if (!InitSockEnv())
 		{
@@ -321,6 +312,17 @@ private:
 		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
+
+
+	bool Send(const char* pData, int nSize) {
+		if (m_sock == -1) {
+			return false;
+		}
+		return send(m_sock, pData, nSize, 0) > 0;
+	}
+
+	bool Send(const CPacket& pack);
+
 
 	static void threadEntry(void* arg);
 	void threadFunc();
