@@ -58,7 +58,7 @@ bool CClientSocket::InitSocket()
 	return true;
 }
 
-bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed)
+bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed, WPARAM wParam)
 {
 	if (m_hThread == INVALID_HANDLE_VALUE) {
 		m_hThread = (HANDLE)_beginthreadex(NULL, 0, &CClientSocket::threadEntry, this, 0, &m_nThreadId);
@@ -67,36 +67,9 @@ bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed
 	std::string strOut;
 	pack.Data(strOut);
 	return PostThreadMessage(m_nThreadId, WM_SEND_PACK, 
-		(WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode), (LPARAM)hWnd);
+		(WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
 
 }
-/*
-bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, BOOL isAutoClosed)
-{
-	if (m_sock == INVALID_SOCKET && m_hThread == INVALID_HANDLE_VALUE) {
-		m_hThread = (HANDLE)_beginthread(&CClientSocket::threadEntry, 0, this);
-		TRACE("start client socket thread.\r\n");
-	}
-	TRACE("cmd:%d event:%08X threadID:%d\r\n", pack.sCmd, pack.m_hEvent, GetCurrentThreadId());
-	//线程安全
-	m_lock.lock();
-	m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>&>(pack.m_hEvent, lstPacks));
-	m_mapAutoClosed.insert(std::pair<HANDLE, bool>(pack.m_hEvent, isAutoClosed));
-	m_lstSend.push_back(pack);
-	m_lock.unlock();
-	TRACE("scmd:%d\r\n", pack.sCmd);
-	WaitForSingleObject(pack.m_hEvent, INFINITE);
-	std::map<HANDLE, std::list<CPacket>&>::iterator it;
-	it = m_mapAck.find(pack.m_hEvent);
-	if (it != m_mapAck.end()) {
-		m_lock.lock();
-		m_mapAck.erase(it);
-		m_lock.unlock();
-		return true;
-	}
-	return false;
-}
-*/
 
 CClientSocket::CClientSocket(const CClientSocket& s)
 {
@@ -172,7 +145,7 @@ void CClientSocket::SendPacket_msg(UINT nMsg, WPARAM wParam, LPARAM lParam)
 					size_t nLen = index;
 					CPacket pack((BYTE*)pBufffer, nLen);
 					if (nLen > 0) {//解包成功
-						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), 0);
+						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), data.wParam);
 						if (data.nMode & CSM_AUTOCLOSED) {
 							CloseSocket();
 							return;
@@ -218,69 +191,3 @@ unsigned CClientSocket::threadEntry(void* arg)
 	_endthreadex(0);
 	return 0;
 }
-/*
-void CClientSocket::threadFunc()
-{
-	std::string strBuffer;
-	strBuffer.resize(BUFFER_SIZE);
-	char* pBuffer = (char*)strBuffer.c_str();
-	int index = 0;
-	InitSocket();
-	while (m_sock != INVALID_SOCKET) { //TODO: 下载大文件存在问题
-		if (m_lstSend.size() > 0) {
-			CPacket head = m_lstSend.front();
-			TRACE("head.shead %x\r\n", head.sHead);
-			if (Send(head) == false) {
-				TRACE(_T("发送失败\r\n"));
-				continue;
-			}
-			//应答队列
-			std::map<HANDLE, std::list<CPacket>&>::iterator it_ack 
-				= m_mapAck.find(head.m_hEvent);
-			//自动关闭
-			std::map<HANDLE, bool>::iterator it_auto =
-				m_mapAutoClosed.find(head.m_hEvent);
-			if (it_ack != m_mapAck.end()) {
-				do {
-					int len = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
-					TRACE("read len:%d, index:%d\r\n", len, index);
-					if ((len > 0) || (index > 0)) {
-						index += len;
-						size_t size = (size_t)index;
-						CPacket pack((BYTE*)pBuffer, size);
-
-						if (size > 0) {
-							TRACE("size:%d, len:%d, index:%d\r\n", size, len, index);
-							//通知对应事件
-							pack.m_hEvent = head.m_hEvent;
-							TRACE("recv.shead:%x, cmd:%d\r\n", pack.sHead, pack.sCmd);
-							it_ack->second.push_back(pack);
-							memmove(pBuffer, pBuffer + size, index - size);
-							index -= size;
-							if (it_auto->second) {//问题
-								CloseSocket();
-								SetEvent(head.m_hEvent);
-								break;
-							}
-						}
-					}
-					else if (len <= 0 && index <= 0) {
-						TRACE("&& len:%d, index:%d\r\n", len, index);
-						CloseSocket();
-						SetEvent(head.m_hEvent); //等待服务端关闭，再通知完成
-						
-						break;
-					}
-				} while (it_auto->second == false);
-			}
-			m_lock.lock();
-			m_lstSend.pop_front();
-			m_mapAutoClosed.erase(head.m_hEvent);
-			m_lock.unlock();
-			InitSocket();
-		}
-		Sleep(1);
-	}
-	CloseSocket();
-}
-*/
