@@ -8,16 +8,17 @@
 #include <mutex>
 #pragma warning(disable:4996)
 
-#define WM_SEND_PACK (WM_USER+1)
+#define WM_SEND_PACK (WM_USER+1) //发送包数据
+#define WM_SEND_PACK_ACK (WM_USER+2) //包数据应答
 
 #pragma pack(push)
 #pragma pack(1)
 // 设为 1 字节对齐 去除补全位
 class CPacket {
 public:
-	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0), m_hEvent(INVALID_HANDLE_VALUE) {}
+	CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0){}
 
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent) {
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
 		sCmd = nCmd;
@@ -32,7 +33,6 @@ public:
 		for (size_t j = 0; j < strData.size(); j++) {
 			sSum += strData[j] & 0xFF;
 		}
-		m_hEvent = hEvent;
 	}
 
 	CPacket(const CPacket& pack) {
@@ -41,7 +41,6 @@ public:
 		sCmd = pack.sCmd;
 		strData = pack.strData;
 		sSum = pack.sSum;
-		m_hEvent = pack.m_hEvent;
 	}
 	CPacket& operator=(const CPacket& pack) {
 		if (this != &pack) { //Qu
@@ -50,12 +49,11 @@ public:
 			sCmd = pack.sCmd;
 			strData = pack.strData;
 			sSum = pack.sSum;
-			m_hEvent = pack.m_hEvent;
 		}
 		return *this;
 	}
 
-	CPacket(const BYTE* pData, size_t& nSize):m_hEvent(INVALID_HANDLE_VALUE){
+	CPacket(const BYTE* pData, size_t& nSize){
 		size_t i = 0;
 		for (; i < nSize; i++) {
 			if (*(WORD*)(pData + i) == 0xFEFF) {
@@ -123,7 +121,6 @@ public:
 	WORD sCmd; // 控制命令
 	std::string strData; //包数据
 	WORD sSum; //和校验
-	HANDLE m_hEvent;
 };
 
 #pragma pack(pop)
@@ -154,6 +151,35 @@ typedef struct file_info {
 	bool IsDirectory; //是否为目录 0不是 1是
 	bool HasNext; //是否有后续 0 没有 1有
 }FILEINFO, * PFILEINFO;
+
+enum 
+{
+	CSM_AUTOCLOSED = 1, //Client Socket mode
+};
+
+typedef struct PacketData{
+	std::string strData;
+	UINT nMode;
+	PacketData(const char* pData, size_t nLen, UINT mode) {
+		strData.resize(nLen);
+		memcpy((char*)strData.c_str(), pData, nLen);
+		nMode = mode;
+	}
+	PacketData(const PacketData& data) {
+		strData = data.strData;
+		nMode = data.nMode;
+	}
+	PacketData& operator=(const PacketData& data) {
+		if (this != &data) {
+			strData = data.strData;
+			nMode = data.nMode;
+		}
+		return *this;
+	}
+
+}PACKET_DATA;
+
+
 
 #define BUFFER_SIZE 4096000
 
@@ -216,7 +242,7 @@ public:
 	* 校验 和/CRC
 	*/
 
-	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, BOOL isAutoClosed = TRUE);
+	bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed = true);
 
 	bool GetFilePath(std::string strPath) {
 		if (m_packet.sCmd == 2 || m_packet.sCmd == 3 || m_packet.sCmd == 4) {
@@ -251,6 +277,7 @@ public:
 	}
 
 private:
+	UINT m_nThreadId;
 	typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	std::map<UINT, MSGFUNC> m_mapFunc;
 	int m_nIP; //地址
@@ -268,40 +295,10 @@ private:
 	std::map<HANDLE, bool> m_mapAutoClosed;
 
 	CClientSocket& operator=(const CClientSocket& s) {}
-	CClientSocket(const CClientSocket& s)
-	{
-		m_bAutoClosed = s.m_bAutoClosed;
-		m_sock = s.m_sock;
-		m_nIP = s.m_nIP;
-		m_nPort = s.m_nPort;
-		m_hThread = INVALID_HANDLE_VALUE;
-		struct
-		{
-			UINT message;
-			MSGFUNC func;
-		}funcs[]{
-			{WM_SEND_PACK,&CClientSocket::SendPacket_msg},
-			{0,NULL}
-		};
-		for (int i = 0; funcs[i].message != 0; i++) {
-			m_mapFunc.insert(std::pair<UINT, MSGFUNC>(
-				funcs[i].message, funcs[i].func));
-		}
-	}
-	CClientSocket() : m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClosed(TRUE), m_hThread(INVALID_HANDLE_VALUE)
-	{
-		if (!InitSockEnv())
-		{
-			//Question
-			MessageBox(NULL, _T("无法初始化套接字环境."), _T("初始化错误."), MB_OK | MB_ICONERROR);
-			exit(0);
-		}
-		//m_lstSend.clear();
-		//m_mapAck.clear();
-		//m_mapAutoClosed.clear();
-		m_buffer.resize(BUFFER_SIZE);
-		memset(m_buffer.data(), 0, BUFFER_SIZE);
-	}
+	CClientSocket(const CClientSocket& s);
+
+	CClientSocket();
+
 	~CClientSocket() {
 		m_lstSend.clear();
 		m_mapAck.clear();
@@ -323,10 +320,9 @@ private:
 	bool Send(const CPacket& pack);
 	void SendPacket_msg(UINT nMsg, WPARAM wParam, LPARAM lParam);
 
-	static void threadEntry(void* arg);
-	void threadFunc();
+	static unsigned __stdcall threadEntry(void* arg);
 	void threadFunc_msg();
-
+	//void threadFunc();
 	// 初始化套接字环境
 	bool InitSockEnv() {
 		WSADATA data;

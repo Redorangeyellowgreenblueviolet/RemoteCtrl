@@ -56,27 +56,13 @@ LRESULT CClientController::_SendMessage(MSG msg)
     return info.result;
 }
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, std::list<CPacket>* plstPacks)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength) 
 {
     CClientSocket* pClient = CClientSocket::getInstance();
-    HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    //TODO: 将直接发送改为放到队列
-    std::list<CPacket> lstPacks; //应答结果包
-    if (plstPacks == NULL) {
-        plstPacks = &lstPacks;
-    }
 
     TRACE("ncmd:%d, datalen:%d\r\n", nCmd, nLength);
-    CPacket pack(nCmd, pData, nLength, hEvent);
-    TRACE("head %x\r\n", pack.sHead);
-    pClient->SendPacket(pack, *plstPacks, bAutoClose);
-    if(hEvent!=NULL)
-        CloseHandle(hEvent);
-
-    if (plstPacks->size() > 0) {
-        return plstPacks->front().sCmd;
-    }
-    return -1;
+    CPacket pack(nCmd, pData, nLength);
+    return pClient->SendPacket(hWnd, pack, bAutoClose);
 }
 
 int CClientController::DownFile(CString strPath)
@@ -126,7 +112,7 @@ void CClientController::threadDownloadFile()
     // 发送命令 不关闭连接
 	CClientSocket* pClient = CClientSocket::getInstance();
     do {
-        int ret = SendCommandPacket(4, FALSE, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+        int ret = SendCommandPacket(m_remoteDlg,4, FALSE, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
         if (ret < 0) {
             AfxMessageBox("执行下载命令失败.");
             TRACE("执行下载命令失败 ret=%d\r\n", ret);
@@ -175,7 +161,8 @@ void CClientController::threadWatchScreen()
     while (m_isWatchClosed == FALSE) {//TODO 存在线程结束导致的问题
         if (m_watchDlg.isFull() == FALSE) { //更新数据到缓存
             std::list<CPacket> lstPacks;
-            int ret = SendCommandPacket(6, TRUE, NULL, 0, &lstPacks);
+            int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, TRUE, NULL, 0);
+            //TODO: 添加消息响应函数 WM_SEND_PACK 控制发送频率
             TRACE("ret:%d\r\n", ret);
             if (ret == 6) {
                 if (CTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0) {

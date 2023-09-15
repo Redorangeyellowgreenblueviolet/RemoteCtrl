@@ -47,9 +47,10 @@ public:
 	* 7 锁机
 	* 8 解锁
 	* 1981 测试连接
-	* 返回值 命令号 错误-1
+	* 返回值 状态
 	*/
-	int SendCommandPacket(int nCmd, bool bAutoClose = TRUE, BYTE* pData = NULL, size_t nLength = 0, std::list<CPacket>* plstPacks = NULL);
+	bool SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose = true,
+		BYTE* pData = NULL, size_t nLength = 0);
 
 	int GetImage(CImage& image) {
 		CClientSocket* pClient = CClientSocket::getInstance();
