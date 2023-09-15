@@ -63,7 +63,8 @@ bool CClientController::SendCommandPacket(
 
     TRACE("ncmd:%d, datalen:%d\r\n", nCmd, nLength);
     CPacket pack(nCmd, pData, nLength);
-    return pClient->SendPacket(hWnd, pack, bAutoClose, wParam);
+    bool ret = pClient->SendPacket(hWnd, pack, bAutoClose, wParam);
+    return ret;
 }
 
 int CClientController::DownFile(CString strPath)

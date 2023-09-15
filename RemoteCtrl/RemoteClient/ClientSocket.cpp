@@ -58,18 +58,7 @@ bool CClientSocket::InitSocket()
 	return true;
 }
 
-bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed, WPARAM wParam)
-{
-	if (m_hThread == INVALID_HANDLE_VALUE) {
-		m_hThread = (HANDLE)_beginthreadex(NULL, 0, &CClientSocket::threadEntry, this, 0, &m_nThreadId);
-	}
-	UINT nMode = isAutoClosed ? CSM_AUTOCLOSED : 0;
-	std::string strOut;
-	pack.Data(strOut);
-	return PostThreadMessage(m_nThreadId, WM_SEND_PACK, 
-		(WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
 
-}
 
 CClientSocket::CClientSocket(const CClientSocket& s)
 {
@@ -93,9 +82,9 @@ CClientSocket::CClientSocket()
 		MessageBox(NULL, _T("无法初始化套接字环境."), _T("初始化错误."), MB_OK | MB_ICONERROR);
 		exit(0);
 	}
-	//m_lstSend.clear();
-	//m_mapAck.clear();
-	//m_mapAutoClosed.clear();
+	m_lstSend.clear();
+	m_mapAck.clear();
+	m_mapAutoClosed.clear();
 	m_buffer.resize(BUFFER_SIZE);
 	memset(m_buffer.data(), 0, BUFFER_SIZE);
 	struct
@@ -110,20 +99,49 @@ CClientSocket::CClientSocket()
 		m_mapFunc.insert(std::pair<UINT, MSGFUNC>(
 			funcs[i].message, funcs[i].func));
 	}
+
+	m_eventInvoke = CreateEvent(NULL, TRUE, FALSE, NULL);
+	m_hThread = (HANDLE)_beginthreadex(NULL, 0, &CClientSocket::threadEntry, this, 0, &m_nThreadId);
+	if (WaitForSingleObject(m_eventInvoke, 100) == WAIT_TIMEOUT) {
+		TRACE("网络消息处理线程启动失败\r\n");
+	}
+	CloseHandle(m_eventInvoke);
+}
+
+bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed, WPARAM wParam)
+{
+
+	UINT nMode = isAutoClosed ? CSM_AUTOCLOSED : 0;
+	std::string strOut;
+	pack.Data(strOut);
+	bool ret = PostThreadMessage(m_nThreadId, WM_SEND_PACK,
+		(WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+	return ret;
 }
 
 void CClientSocket::threadFunc_msg()
 {
+	SetEvent(m_eventInvoke);
 	MSG msg;
 	while (::GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
+		TRACE("Get Message:%08X\r\n", msg.message);
 		if (m_mapFunc.find(msg.message) != m_mapFunc.end()) {
 			(this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
 		}
 
 	}
 }
+
+unsigned CClientSocket::threadEntry(void* arg)
+{
+	CClientSocket* thiz = (CClientSocket*)arg;
+	thiz->threadFunc_msg();
+	_endthreadex(0);
+	return 0;
+}
+
 
 void CClientSocket::SendPacket_msg(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {//TODO: 消息数据结构: 数据 长度 模式  回调消息的数据结构:HWND MESSAGE
@@ -184,10 +202,3 @@ bool CClientSocket::Send(const CPacket& pack)
 	return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
 }
 
-unsigned CClientSocket::threadEntry(void* arg)
-{
-	CClientSocket* thiz = (CClientSocket*)arg;
-	thiz->threadFunc_msg();
-	_endthreadex(0);
-	return 0;
-}
