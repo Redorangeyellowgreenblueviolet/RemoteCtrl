@@ -59,9 +59,8 @@ LRESULT CClientController::_SendMessage(MSG msg)
 bool CClientController::SendCommandPacket(
     HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, WPARAM wParam)
 {
-    CClientSocket* pClient = CClientSocket::getInstance();
-
-    TRACE("ncmd:%d, datalen:%d\r\n", nCmd, nLength);
+    TRACE("ncmd:%d, datalen:%d, start:%lld\r\n", nCmd, nLength, GetTickCount64());
+    CClientSocket* pClient = CClientSocket::getInstance();   
     CPacket pack(nCmd, pData, nLength);
     bool ret = pClient->SendPacket(hWnd, pack, bAutoClose, wParam);
     return ret;
@@ -105,17 +104,6 @@ void CClientController::DownloadEnd()
     m_statusDlg.ShowWindow(SW_HIDE);
     m_remoteDlg.EndWaitCursor();
     m_remoteDlg.MessageBox(_T("下载完成"), _T("完成"));
-}
-
-void CClientController::StartWatchScreen()
-{
-    m_isWatchClosed = FALSE;
-    // 按下监控按钮
-    //m_watchDlg.SetParent(&m_remoteDlg);
-    m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchScreenEntry, 0, this);
-    m_watchDlg.DoModal();
-    m_isWatchClosed = TRUE;
-    WaitForSingleObject(m_hThreadWatch, 500);
 }
 
 void CClientController::threadDownloadFile()
@@ -177,26 +165,18 @@ void CClientController::threadDownloadFileEntry(void* arg)
 void CClientController::threadWatchScreen()
 {
     Sleep(50);
-    while (m_isWatchClosed == FALSE) {//TODO 存在线程结束导致的问题
-        if (m_watchDlg.isFull() == FALSE) { //更新数据到缓存
-            std::list<CPacket> lstPacks;
-            int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, TRUE, NULL, 0);
-            //TODO: 添加消息响应函数 WM_SEND_PACK 控制发送频率
-            TRACE("ret:%d\r\n", ret);
-            if (ret == 6) {
-                if (CTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0) {
-                    m_watchDlg.SetImageStatus(TRUE);
-                    TRACE(_T("成功设置图片\r\n"));
-                }
-                else
-                {
-                    TRACE(_T("获取图像失败\r\n"));
-                }
-            }
+    ULONGLONG nTick = GetTickCount64();
+    while (m_isWatchClosed == FALSE) {
+        ULONGLONG curTick = GetTickCount64();
+        if (curTick - nTick < 100) {
+            Sleep(100 - DWORD(curTick - nTick));
         }
-        //网络突然断开 实际休眠时间有CPU确定
-        //缓存有数据
-        Sleep(1);
+        nTick = GetTickCount64();
+        bool ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, TRUE, NULL, 0);
+        TRACE("ret:%d, tick:%lld\r\n", ret,GetTickCount64());
+        if (ret == true) {
+            TRACE(_T("成功发送请求命令屏幕\r\n"));
+        }
     }
 }
 
@@ -206,6 +186,18 @@ void CClientController::threadWatchScreenEntry(void* arg)
     thiz->threadWatchScreen();
     _endthread();
 }
+
+void CClientController::StartWatchScreen()
+{
+    m_isWatchClosed = FALSE;
+    // 按下监控按钮
+    //m_watchDlg.SetParent(&m_remoteDlg);
+    m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchScreenEntry, 0, this);
+    m_watchDlg.DoModal();
+    m_isWatchClosed = TRUE;
+    WaitForSingleObject(m_hThreadWatch, 500);
+}
+
 
 unsigned __stdcall CClientController::threadEntry(void* arg)
 {

@@ -110,27 +110,33 @@ LRESULT CWatchDialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 	else {
 		CPacket* pPacket = (CPacket*)wParam;
 		if (pPacket != NULL) {
-			switch (pPacket->sCmd)
+			CPacket head = *(CPacket*)wParam;
+			delete (CPacket*)wParam;
+			switch (head.sCmd)
 			{
 			case 6:
 			{
-				if (m_isFull) {
-					CRect rect;
-					m_picture.GetWindowRect(rect);
-					m_nObjWidth = m_image.GetWidth();
-					m_nObjHeight = m_image.GetHeight();
+				CTool::Bytes2Image(m_image, head.strData);
+				CRect rect;
+				m_picture.GetWindowRect(rect);
+				m_nObjWidth = m_image.GetWidth();
+				m_nObjHeight = m_image.GetHeight();
 
-					m_image.StretchBlt(
-						m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
-					m_picture.InvalidateRect(NULL);
-					m_image.Destroy();
-					SetImageStatus(FALSE);
-				}
+				m_image.StretchBlt(
+					m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+				m_picture.InvalidateRect(NULL);
+				m_image.Destroy();
 				break;
 			}
 			case 5:
+				TRACE(_T("鼠标事件完成\r\n"));
+				break;
 			case 7:
+				TRACE(_T("锁机完成\r\n"));
+				break;
 			case 8:
+				TRACE(_T("解锁完成\r\n"));
+				break;
 			default:
 				break;
 			}

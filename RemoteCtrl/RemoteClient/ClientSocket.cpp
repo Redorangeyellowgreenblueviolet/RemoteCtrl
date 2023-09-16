@@ -114,8 +114,12 @@ bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClosed
 	UINT nMode = isAutoClosed ? CSM_AUTOCLOSED : 0;
 	std::string strOut;
 	pack.Data(strOut);
+	PACKET_DATA* pData = new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam);
 	bool ret = PostThreadMessage(m_nThreadId, WM_SEND_PACK,
-		(WPARAM)new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam), (LPARAM)hWnd);
+		(WPARAM)pData, (LPARAM)hWnd);
+	if (ret == false) {
+		delete pData;
+	}
 	return ret;
 }
 

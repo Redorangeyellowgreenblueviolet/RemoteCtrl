@@ -300,6 +300,7 @@ protected:
     }
 
     void threadLockDlgMain() {
+        TRACE(_T("进入锁机线程\r\n"));
         //窗口置顶
         dlg.Create(IDD_DIALOG_INFO, NULL);
         dlg.ShowWindow(SW_SHOW);
@@ -362,6 +363,7 @@ protected:
         if (dlg.m_hWnd == NULL || dlg.m_hWnd == INVALID_HANDLE_VALUE) {
             //_beginthread(threadLockDlg, 0, NULL);
             _beginthreadex(NULL, 0, &CCommand::threadLockDlg, this, 0, &threadid);
+            Sleep(20);
         }
 
         lstPacket.push_back(CPacket(7, NULL, 0));
