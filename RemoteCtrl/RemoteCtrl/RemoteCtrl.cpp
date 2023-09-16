@@ -24,6 +24,11 @@
 CWinApp theApp;
 
 void ChooseAutoInvoke() {
+    CString strPath = CString(_T("C:\\Windows\\SysWOW64\\RemoteCtrl.exe"));
+    if (PathFileExists(strPath)) {
+        return;
+    }
+
     CString strSubKey = _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
     CString strInfo = _T("该程序只允许用于合法的用途\n");
     strInfo += _T("进入被监控状态\n");
@@ -47,7 +52,7 @@ void ChooseAutoInvoke() {
             MessageBox(NULL, _T("设置自启开机启动失败\r\n程序启动失败"), _T("错误"), MB_ICONERROR | MB_TOPMOST);
             exit(0);
         }
-        CString strPath = CString(_T("%SystemRoot%\\SysWOW64\\RemoteCtrl.exe"));
+        
         ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_EXPAND_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength() * sizeof(TCHAR));
         if (ret != ERROR_SUCCESS) {
             RegCloseKey(hKey);
