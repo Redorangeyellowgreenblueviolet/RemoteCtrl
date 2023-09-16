@@ -29,17 +29,18 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
 public:
+	void LoadFileInfo();
 	void LoadFileCurrent();
 private:
 
 	bool m_isWatchClosed; //监控是否关闭
 private:
-	//监控数据线程 静态函数实现框架 成员函数具体实现
-	//static void threadEntryForWatchData(void* arg);//静态函数不能使用this
-	//void threadWatchData(); //成员函数this
-
 	
-	void LoadFileInfo();
+	//简化case
+	void Str2Tree(const std::string& drivers, CTreeCtrl& tree);
+	void UpdateFileInfo(const FILEINFO& finfo, HTREEITEM hParent);
+	void UpdateDownloadFile(const std::string& strData, FILE* pFile);
+	void DealCommond(WORD nCmd, std::string strData, LPARAM lParam);
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 // 实现
@@ -48,6 +49,7 @@ protected:
 	CStatusDlg m_dlgStatus;
 
 	// 生成的消息映射函数
+	void InitUIData();
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
