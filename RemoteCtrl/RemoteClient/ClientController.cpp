@@ -83,10 +83,6 @@ int CClientController::DownFile(CString strPath)
 
         int ret = SendCommandPacket(
             m_remoteDlg, 4, FALSE, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
-        //m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadFileEntry, 0, this);
-        //if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {
-        //    return -1;
-        //}
         // 大文件传输 避免卡死，通过线程  用户知道进度
         m_remoteDlg.BeginWaitCursor();
         m_statusDlg.m_info.SetWindowText(_T("命令正在执行"));

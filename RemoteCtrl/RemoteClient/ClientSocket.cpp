@@ -152,6 +152,9 @@ void CClientSocket::SendPacket_msg(UINT nMsg, WPARAM wParam, LPARAM lParam)
 	PACKET_DATA data = *(PACKET_DATA*)wParam;
 	delete (PACKET_DATA*)wParam;
 	HWND hWnd = (HWND)lParam;
+
+	size_t curPackLen = (size_t)data.strData.size();
+	CPacket curPack((BYTE*)data.strData.c_str(), curPackLen);
 	if (InitSocket()) {
 		int ret = send(m_sock, (char*)data.strData.c_str(), (int)data.strData.size(), 0);
 		if (ret > 0) {
@@ -167,18 +170,21 @@ void CClientSocket::SendPacket_msg(UINT nMsg, WPARAM wParam, LPARAM lParam)
 					size_t nLen = index;
 					CPacket pack((BYTE*)pBufffer, nLen);
 					if (nLen > 0) {//解包成功
+						TRACE("pack successful\r\n");
 						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), data.wParam);
 						if (data.nMode & CSM_AUTOCLOSED) {
 							CloseSocket();
 							return;
 						}
+						index -= nLen;
+						memmove(pBufffer, pBufffer + nLen, index);
 					}
-					index -= nLen;
-					memmove(pBufffer, pBufffer + index, nLen);
+					
 				}
-				else {//对方关闭了套接字，网络异常
+				else {//对方关闭了套接字
+					TRACE("recv failed,len:%d,index:%d\r\n", length, index);
 					CloseSocket();
-					::SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, 1);
+					::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(curPack.sCmd, NULL, 0), 1);
 				}
 
 			}

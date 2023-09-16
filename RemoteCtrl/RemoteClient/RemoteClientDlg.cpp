@@ -279,29 +279,8 @@ void CRemoteClientDlg::LoadFileInfo()
 	//获取路径
 	CString strPath = GetPath(hTreeSelected);
 	//发送命令
-	std::list<CPacket> lstPackets;
 	int nCmd = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(),
 		2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength(), (WPARAM)hTreeSelected);
-	if (lstPackets.size() > 0) {
-		TRACE("loadfile size %d\r\n", lstPackets.size());
-		std::list<CPacket>::iterator it = lstPackets.begin();
-		for (; it != lstPackets.end(); it++) {
-			PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
-			if (pInfo->HasNext == false) {
-				continue;
-			}
-			if (pInfo->IsDirectory) {//目录
-				if (CString(pInfo->szFileName) == "." || CString(pInfo->szFileName) == "..") {
-					continue;
-				}
-				HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-				m_Tree.InsertItem("", hTemp, TVI_LAST);
-			}
-			else { //文件
-				m_List.InsertItem(0, pInfo->szFileName);
-			}
-		}
-	}
 }
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
@@ -417,11 +396,13 @@ void CRemoteClientDlg::OnEnChangeEditPort()
 
 LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 {
+	//TRACE("lParam %d\r\n",lParam);
 	if (lParam == -1 || lParam == -2) {
 		//TODO:错误处理
 	}
 	else if (lParam == 1) {
 		//对方关闭了套接字
+		TRACE("server close socket\r\n");
 	}
 	else {
 		if (wParam != NULL) {
@@ -450,6 +431,7 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 			}
 			case 2: //文件信息
 			{
+				//TRACE("file tree done\r\n");
 				PFILEINFO pInfo = (PFILEINFO)head.strData.c_str();
 				if (pInfo->HasNext == false) {
 					break;
@@ -460,6 +442,7 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 					}
 					HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
 					m_Tree.InsertItem("", hTemp, TVI_LAST);
+					m_Tree.Expand((HTREEITEM)lParam, TVE_EXPAND);
 				}
 				else { //文件
 					m_List.InsertItem(0, pInfo->szFileName);
@@ -491,6 +474,12 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 					FILE* pFile = (FILE*)lParam;
 					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
 					index += head.strData.size();
+					if (index >= length) {
+						fclose((FILE*)lParam);
+						length = 0;
+						index = 0;
+						CClientController::getInstance()->DownloadEnd();
+					}
 				}
 			}
 			break;

@@ -29,7 +29,7 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
 public:
-
+	void LoadFileCurrent();
 private:
 
 	bool m_isWatchClosed; //监控是否关闭
@@ -38,7 +38,7 @@ private:
 	//static void threadEntryForWatchData(void* arg);//静态函数不能使用this
 	//void threadWatchData(); //成员函数this
 
-	void LoadFileCurrent();
+	
 	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
