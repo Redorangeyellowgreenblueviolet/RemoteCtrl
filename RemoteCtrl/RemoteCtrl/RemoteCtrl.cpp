@@ -90,9 +90,48 @@ void ChooseAutoInvoke() {
     return;
 }
 
+void ShowError() 
+{
+    LPWSTR lpMessageBuf = NULL;
+    //strerror(errno); //标准C语言库
+    FormatMessage(
+        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
+        NULL, GetLastError(),
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPWSTR)&lpMessageBuf, 0, NULL
+    );
+    OutputDebugString(lpMessageBuf);
+    LocalFree(lpMessageBuf);
+}
+
+bool isAdmin(){//判断权限
+    HANDLE hToken = NULL;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        ShowError();
+        return false;
+    }
+    TOKEN_ELEVATION eve;
+    DWORD len = 0;
+    if (GetTokenInformation(hToken, TokenElevation, &eve, sizeof(eve), &len) == FALSE) {
+        ShowError();
+        return false;
+    }
+    CloseHandle(hToken);
+    if (len == sizeof(eve)) {
+        return eve.TokenIsElevated;
+    }
+    TRACE("length of token information is %d\r\n", len);
+    return false;
+}
 
 int main()
 {
+    if (isAdmin()) {
+        OutputDebugString(L"current is run as administrator.\r\n");
+    }else{
+        OutputDebugString(L"current is run as normal user.\r\n");
+    }
+
     int nRetCode = 0;
 
     HMODULE hModule = ::GetModuleHandle(nullptr);
