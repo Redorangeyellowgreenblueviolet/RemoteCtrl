@@ -160,6 +160,7 @@
     <ClInclude Include="LockInfoDialog.h" />
     <ClInclude Include="Packet.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Queue.h" />
     <ClInclude Include="RemoteCtrl.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="ServerSocket.h" />
@@ -175,6 +176,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Queue.cpp" />
     <ClCompile Include="RemoteCtrl.cpp" />
     <ClCompile Include="ServerSocket.cpp" />
     <ClCompile Include="Tool.cpp" />

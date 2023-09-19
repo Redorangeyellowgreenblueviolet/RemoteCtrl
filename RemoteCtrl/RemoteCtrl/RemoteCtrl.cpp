@@ -60,8 +60,8 @@ enum
 typedef struct IocpParam {
     int nOperator; //操作
     std::string strData; //数据
-    _beginthreadex_proc_type cbFunc; //回调
-    IocpParam(int op, const char* sData, _beginthreadex_proc_type cb = NULL) {
+    _beginthread_proc_type cbFunc; //回调
+    IocpParam(int op, const char* sData, _beginthread_proc_type cb = NULL) {
         nOperator = op;
         strData = sData;
         cbFunc = cb;
@@ -72,13 +72,13 @@ typedef struct IocpParam {
 }IOCP_PARAM;
 
 
-void threadQueueEntry(HANDLE hIOCP)
+void threadQueue(HANDLE hIOCP)
 {
     std::list<std::string> lstString;
     DWORD dwTransferred = 0;
     ULONG_PTR CompletionKey = 0;
     OVERLAPPED* pOverlapped = NULL;
-    while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey,&pOverlapped,INFINITE))
+    while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE))
     {
         if (dwTransferred == 0 || CompletionKey == NULL) {
             printf("thread is prepare to exit\r\n");
@@ -88,7 +88,7 @@ void threadQueueEntry(HANDLE hIOCP)
         if (pParam->nOperator == IocpListPush) {
             lstString.push_back(pParam->strData);
         }
-        else if (pParam->nOperator == IocpListPop){
+        else if (pParam->nOperator == IocpListPop) {
             std::string* pStr = NULL;
             if (lstString.size() > 0) {
                 pStr = new std::string(lstString.front());
@@ -98,12 +98,17 @@ void threadQueueEntry(HANDLE hIOCP)
                 pParam->cbFunc(pStr);
             }
         }
-        else if(pParam->nOperator == IocpListEmpty)
+        else if (pParam->nOperator == IocpListEmpty)
         {
             lstString.clear();
         }
         delete pParam; //释放内存
     }
+}
+
+void threadQueueEntry(HANDLE hIOCP)
+{
+    threadQueue(hIOCP);
     _endthread();
 }
 
@@ -134,9 +139,11 @@ int main()
     HANDLE hThread = (HANDLE)_beginthread(threadQueueEntry, 0, hIOCP);
     
     ULONGLONG tick = GetTickCount64();
-    while (_kbhit() != 0) {
-        if (GetTickCount64() - tick > 1300) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello"), NULL);
+    ULONGLONG tick1 = GetTickCount64();
+    while (_kbhit() == 0) {
+        if (GetTickCount64() - tick1 > 1300) {
+            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello", func), NULL);
+            tick1 = GetTickCount64();
         }
 
         if (GetTickCount64() - tick > 2000) {
