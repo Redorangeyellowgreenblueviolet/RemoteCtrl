@@ -5,7 +5,7 @@
 #include "ServerSocket.h"
 #include "Command.h"
 #include "Tool.h"
-
+#include "Queue.h"
 #include<conio.h>
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -134,31 +134,25 @@ int main()
         return 1;
     //创建iocp 通过线程处理
     printf("press and key to exit...\r\n");
-    HANDLE hIOCP = INVALID_HANDLE_VALUE; //IO completion port
-    hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1); 
-    HANDLE hThread = (HANDLE)_beginthread(threadQueueEntry, 0, hIOCP);
-    
-    ULONGLONG tick = GetTickCount64();
-    ULONGLONG tick1 = GetTickCount64();
+    CQueue<std::string> lstStrings;
+    ULONGLONG tick = GetTickCount64(), tick0 = GetTickCount64();
     while (_kbhit() == 0) {
-        if (GetTickCount64() - tick1 > 1300) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello", func), NULL);
-            tick1 = GetTickCount64();
+        if (GetTickCount64() - tick0 > 1300) {
+            lstStrings.PushBack("hello");
+            tick0 = GetTickCount64();
         }
 
         if (GetTickCount64() - tick > 2000) {
-            PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello"), NULL);
+            std::string str{};
+            lstStrings.PopFront(str);
             tick = GetTickCount64();
+            printf("pop from queue:%s\r\n.", str.c_str());
         }
         Sleep(1);
     }
-
-    if (hIOCP != NULL) {
-        PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);
-        WaitForSingleObject(hThread, INFINITE);
-    }
-    CloseHandle(hIOCP);
-    printf("exit done\r\n");
+    printf("size:%d, exit done.\r\n", lstStrings.Size());
+    lstStrings.Clear();
+    printf("size:%d, exit done.\r\n", lstStrings.Size());
     exit(0);
 
 
