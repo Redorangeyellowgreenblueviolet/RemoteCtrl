@@ -31,19 +31,24 @@ public:
 	CQueue() {
 		m_atom = false;
 		m_hCompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);
-		m_hCompletionPort = INVALID_HANDLE_VALUE;
+		m_hThread = INVALID_HANDLE_VALUE;
 		if (m_hCompletionPort) {
-			m_hThread = (HANDLE)_beginthread(&CQueue<T>::threadEntry, 0, m_hCompletionPort);
+			m_hThread = (HANDLE)_beginthread(&CQueue<T>::threadEntry, 
+				0, this);
+			Sleep(1);
 		}
 	}
 	~CQueue() {
 		if (m_atom == true) return;
 		m_atom = true;
-		HANDLE hTemp = m_hCompletionPort;
 		PostQueuedCompletionStatus(m_hCompletionPort, 0, NULL, NULL);
 		WaitForSingleObject(m_hThread, INFINITE);
-		m_hCompletionPort = NULL;
-		CloseHandle(hTemp);
+		if (m_hCompletionPort) {
+			HANDLE hTemp = m_hCompletionPort;
+			m_hCompletionPort = NULL;
+			CloseHandle(hTemp);
+		}
+
 	}
 	bool PushBack(const T& data) {
 		IocpParam* pParam = new IocpParam(QPush, data);
@@ -166,7 +171,9 @@ private:
 			pParam = (POSTPARAM*)CompletionKey;
 			DealParam(pParam);
 		}
-		CloseHandle(m_hCompletionPort);
+		HANDLE hTemp = m_hCompletionPort;
+		m_hCompletionPort = NULL;
+		CloseHandle(hTemp);
 	}
 
 private:

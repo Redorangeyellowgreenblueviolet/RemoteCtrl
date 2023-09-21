@@ -6,10 +6,12 @@
 #include "Command.h"
 #include "Tool.h"
 #include "Queue.h"
-#include<conio.h>
+#include <MSWSock.h>
+#include <conio.h>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+#include "Server.h"
 
 //#pragma comment(linker,"/subsystem:windows /entry:WinMainCRTStartup")
 //#pragma comment(linker,"/subsystem:windows /entry:mainCRTStartup")
@@ -50,81 +52,52 @@ bool ChooseAutoInvoke(const CString& strPath) {
 }
 
 
-enum 
+void test() 
 {
-    IocpListEmpty,
-    IocpListPush,
-    IocpListPop
+    //创建iocp 通过线程处理
+    CQueue<std::string> lstStrings;
+    ULONGLONG tick = GetTickCount64(), tick0 = GetTickCount64(), total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) {
+        //if (GetTickCount64() - tick0 > 5) 
+        {
+            lstStrings.PushBack("hello");
+            tick0 = GetTickCount64();
+        }
+        //Sleep(1);
+    }
+    printf("size:%d, exit done.\r\n", lstStrings.Size());
+    total = GetTickCount64();
+    while (GetTickCount64() - total <= 1000) {
+        //if (GetTickCount64() - tick > 5) 
+        {
+            std::string str;
+            lstStrings.PopFront(str);
+            tick = GetTickCount64();
+            //printf("pop from queue:%s.\r\n", str.c_str());
+        }
+        //Sleep(1);
+    }
+    printf("size:%d, exit done.\r\n", lstStrings.Size());
+    lstStrings.Clear();
+}
+
+
+class COverlappered {
+public:
+    OVERLAPPED m_overlapped;
+    DWORD m_operator;
+    char m_buffer[4096];
+    COverlappered() {
+        m_operator = 0;
+        memset(&m_overlapped, 0, sizeof(m_overlapped));
+        memset(m_buffer, 0, sizeof(m_buffer));
+    }
 };
 
-typedef struct IocpParam {
-    int nOperator; //操作
-    std::string strData; //数据
-    _beginthread_proc_type cbFunc; //回调
-    IocpParam(int op, const char* sData, _beginthread_proc_type cb = NULL) {
-        nOperator = op;
-        strData = sData;
-        cbFunc = cb;
-    }
-    IocpParam() {
-        nOperator = -1;
-    }
-}IOCP_PARAM;
-
-
-void threadQueue(HANDLE hIOCP)
-{
-    std::list<std::string> lstString;
-    DWORD dwTransferred = 0;
-    ULONG_PTR CompletionKey = 0;
-    OVERLAPPED* pOverlapped = NULL;
-    while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE))
-    {
-        if (dwTransferred == 0 || CompletionKey == NULL) {
-            printf("thread is prepare to exit\r\n");
-            break;
-        }
-        IOCP_PARAM* pParam = (IOCP_PARAM*)CompletionKey;
-        if (pParam->nOperator == IocpListPush) {
-            lstString.push_back(pParam->strData);
-        }
-        else if (pParam->nOperator == IocpListPop) {
-            std::string* pStr = NULL;
-            if (lstString.size() > 0) {
-                pStr = new std::string(lstString.front());
-                lstString.pop_front();
-            }
-            if (pParam->cbFunc) {
-                pParam->cbFunc(pStr);
-            }
-        }
-        else if (pParam->nOperator == IocpListEmpty)
-        {
-            lstString.clear();
-        }
-        delete pParam; //释放内存
-    }
-}
-
-void threadQueueEntry(HANDLE hIOCP)
-{
-    threadQueue(hIOCP);
-    _endthread();
-}
-
-
-void func(void* arg)
-{
-    std::string* pstr = (std::string*)arg;
-    if(pstr != NULL){
-        printf("pop from list:%s\r\n", pstr->c_str());
-        delete pstr;
-    }
-    else
-    {
-        printf("list is empty.\r\n");
-    }
-
+void iocp() {
+    CServer server;
+    server.StartService();
+    getchar();
 }
 
 int main()
@@ -132,28 +105,7 @@ int main()
     //示例
     if (CTool::Init() == false)
         return 1;
-    //创建iocp 通过线程处理
-    printf("press and key to exit...\r\n");
-    CQueue<std::string> lstStrings;
-    ULONGLONG tick = GetTickCount64(), tick0 = GetTickCount64();
-    while (_kbhit() == 0) {
-        if (GetTickCount64() - tick0 > 1300) {
-            lstStrings.PushBack("hello");
-            tick0 = GetTickCount64();
-        }
-
-        if (GetTickCount64() - tick > 2000) {
-            std::string str{};
-            lstStrings.PopFront(str);
-            tick = GetTickCount64();
-            printf("pop from queue:%s\r\n.", str.c_str());
-        }
-        Sleep(1);
-    }
-    printf("size:%d, exit done.\r\n", lstStrings.Size());
-    lstStrings.Clear();
-    printf("size:%d, exit done.\r\n", lstStrings.Size());
-    exit(0);
+    iocp();
 
 
     /*
