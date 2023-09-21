@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Server.h"
+#include "Tool.h"
 
 #pragma warning(disable:4407)
 
@@ -7,7 +8,8 @@ CClient::CClient()
     : m_flags(0), m_isbusy(false),
     m_overlapped(new ACCEPTOVERLAPPED()),
     m_recv(new RECVOVERLAPPED()),
-    m_send(new SENDOVERLAPPED)
+    m_send(new SENDOVERLAPPED()),
+    m_vecSend(this, (SENDCALLBACK)&CClient::SendData)
 {
     m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
     m_buffer.resize(1024);
@@ -17,9 +19,9 @@ CClient::CClient()
 
 void CClient::SetOverlapped(PCLIENT& ptr)
 {
-    m_overlapped->m_client = ptr;
-    m_recv->m_client = ptr;
-    m_send->m_client = ptr;
+    m_overlapped->m_client = ptr.get();
+    m_recv->m_client = ptr.get();
+    m_send->m_client = ptr.get();
 }
 
 CClient::operator LPOVERLAPPED()
@@ -37,6 +39,38 @@ LPWSABUF CClient::SendWSABuffer()
     return &m_send->m_wsabuffer;
 }
 
+int CClient::Recv()
+{
+    int ret = recv(m_sock, m_buffer.data() + m_usedbuf, m_buffer.size() - m_usedbuf, 0);
+    if (ret <= 0)return -1;
+    m_usedbuf += (size_t)ret;
+    //TODO解析数据
+    return 0;
+}
+
+int CClient::Send(void* buffer, size_t nSize)
+{
+    std::vector<char> data(nSize);
+    memcpy(data.data(), buffer, nSize);
+    if (m_vecSend.PushBack(data)) {
+        return 0;
+    }
+    return -1;
+}
+
+int CClient::SendData(std::vector<char>& data)
+{
+    if (m_vecSend.Size() > 0) {
+        int ret = WSASend(m_sock, SendWSABuffer(), 1,
+            &m_recvlen, m_flags, &m_send->m_overlapped, NULL);
+        if (ret != 0 && (WSAGetLastError() != WSA_IO_PENDING)){
+            CTool::ShowError();
+            return -1;
+        }
+    }
+    return 0;
+}
+
 template<EOperator op>
 AcceptOverlapped<op>::AcceptOverlapped()
 {
@@ -50,7 +84,7 @@ AcceptOverlapped<op>::AcceptOverlapped()
 template<EOperator op>
 int AcceptOverlapped<op>::AcceptWorker() {
     int lLength = 0, rLength = 0;
-    if (*(LPDWORD)*m_client.get() > 0) { //问题
+    if (*(LPDWORD)*m_client > 0) { //问题
         GetAcceptExSockaddrs(*m_client, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
             (sockaddr**)m_client->GetLocalAddr(), &lLength, //地址
             (sockaddr**)m_client->GetRemoteAddr(), &rLength);
@@ -86,6 +120,18 @@ inline RecvOverlapped<op>::RecvOverlapped()
 }
 
 
+
+CServer::~CServer()
+{
+    closesocket(m_sock);
+    std::map<SOCKET, PCLIENT>::iterator it = m_client.begin();
+    for (; it != m_client.end(); it++) {
+        it->second.reset();
+    }
+    m_client.clear();
+    CloseHandle(m_hIOCP);
+    m_pool.Stop();
+}
 
 bool CServer::StartService()
 {

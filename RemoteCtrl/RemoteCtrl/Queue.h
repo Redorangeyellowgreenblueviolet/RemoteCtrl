@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "framework.h"
+#include "Thread.h"
 #include <atomic>
 #include <list>
 template<class T>
@@ -38,7 +39,7 @@ public:
 			Sleep(1);
 		}
 	}
-	~CQueue() {
+	virtual ~CQueue() {
 		if (m_atom == true) return;
 		m_atom = true;
 		PostQueuedCompletionStatus(m_hCompletionPort, 0, NULL, NULL);
@@ -61,7 +62,7 @@ public:
 		if (ret == false) delete pParam;
 		return ret;
 	}
-	bool PopFront(T& data) {
+	virtual bool PopFront(T& data) {
 		HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		IocpParam Param(QPop, data, hEvent);
 		if (m_atom == true) {
@@ -107,13 +108,13 @@ public:
 		if (ret == false) delete pParam;
 		return true;
 	}
-private:
+protected:
 	static void threadEntry(void* arg) {
 		CQueue<T>* thiz = (CQueue<T>*)arg;
 		thiz->threadMain();
 		_endthread();
 	}
-	void DealParam(POSTPARAM* pParam) {
+	virtual void DealParam(POSTPARAM* pParam) {
 		switch (pParam->nOperator)
 		{
 		case QPush:
@@ -145,7 +146,7 @@ private:
 		}
 	}
 
-	void threadMain() {
+	virtual void threadMain() {
 		POSTPARAM* pParam = NULL;
 		DWORD dwTransferred = 0;
 		ULONG_PTR CompletionKey = 0;
@@ -176,10 +177,100 @@ private:
 		CloseHandle(hTemp);
 	}
 
-private:
+protected:
 	std::list<T> m_lstData;
 	HANDLE m_hCompletionPort;
 	HANDLE m_hThread;
 	std::atomic<bool> m_atom;
 };
 
+
+
+
+
+template<class T>
+class CSendQueue : public CQueue<T>, public ThreadFuncBase
+{
+public:
+	typedef int (ThreadFuncBase::* ECALLBACK)(T &data);
+	CSendQueue(ThreadFuncBase* obj, ECALLBACK callback)
+		:CQueue<T>(), m_base(obj),m_callback(callback)
+	{
+		m_thread.Start();
+		m_thread.UpdateWorker(::ThreadWorker(this, (FUNCTYPE)&CSendQueue<T>::threadTick));
+	}
+	virtual ~CSendQueue() {
+		m_base = NULL;
+		m_callback = NULL;
+		m_thread.Stop();
+	}
+protected:
+	virtual bool PopFront(T& data) {
+		return false;
+	}
+
+	bool PopFront()
+	{
+		typename CQueue<T>::IocpParam* Param  = 
+			new typename CQueue<T>::IocpParam(CQueue<T>::QPop, T());
+		if (CQueue<T>::m_atom == true) {
+			delete Param;
+			return false;
+		}
+		bool ret = PostQueuedCompletionStatus(CQueue<T>::m_hCompletionPort,
+			sizeof(*Param), (ULONG_PTR)&Param, NULL);
+		if (ret == false) {
+			delete Param;
+			return false;
+		}
+		return ret;
+	}
+
+	int threadTick() {
+		if (WaitForSingleObject(CQueue<T>::m_hThread, 0) != WAIT_TIMEOUT) {
+			return 0;
+		}
+		if (CQueue<T>::m_lstData.size() > 0) {
+			PopFront();
+		}
+		Sleep(1);
+		return 0;
+	}
+
+	virtual void DealParam(typename CQueue<T>::POSTPARAM* pParam) {
+		switch (pParam->nOperator)
+		{
+		case CQueue<T>::QPush:
+			CQueue<T>::m_lstData.push_back(pParam->Data);
+			delete pParam;
+			break;
+		case CQueue<T>::QPop:
+			if (CQueue<T>::m_lstData.size() > 0) {
+				pParam->Data = CQueue<T>::m_lstData.front();
+				if((m_base->*m_callback)(pParam->Data)==0)
+					CQueue<T>::m_lstData.pop_front();
+			}
+			delete pParam;
+			break;
+		case CQueue<T>::QSize:
+			pParam->nOperator = CQueue<T>::m_lstData.size();
+			if (pParam->hEvent != NULL) {
+				SetEvent(pParam->hEvent);
+			}
+			break;
+		case CQueue<T>::QClear:
+			CQueue<T>::m_lstData.clear();
+			delete pParam; //ÊÍ·ÅÄÚ´æ
+			break;
+		default:
+			OutputDebugStringA("unknown operate\r\n");
+			break;
+		}
+	}
+private:
+	ThreadFuncBase* m_base;
+	ECALLBACK m_callback;
+	CThread m_thread;
+};
+
+typedef CSendQueue<std::vector<char>>::ECALLBACK SENDCALLBACK;

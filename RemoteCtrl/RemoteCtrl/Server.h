@@ -37,14 +37,26 @@ public:
     std::vector<char> m_buffer;
     ThreadWorker m_worker; //处理函数
     CServer* m_server; //服务器
-    PCLIENT m_client; //对应的客户端
+    CClient* m_client; //对应的客户端
     WSABUF m_wsabuffer;
+
+    virtual ~EOverlappered() {
+        m_buffer.clear();
+    }
 };
 
-class CClient {
+class CClient:public ThreadFuncBase
+{
 public:
     CClient();
-    ~CClient() {closesocket(m_sock);}
+    ~CClient() {
+        closesocket(m_sock);
+        m_recv.reset();
+        m_send.reset();
+        m_overlapped.reset();
+        m_buffer.clear();
+        m_vecSend.Clear();
+    }
     void SetOverlapped(PCLIENT& ptr);
 
     operator SOCKET() {
@@ -73,15 +85,9 @@ public:
         return m_buffer.size();
     }
 
-    int Recv() {
-        int ret = recv(m_sock, m_buffer.data() + m_usedbuf, m_buffer.size() - m_usedbuf, 0);
-        if (ret <= 0)return -1;
-        m_usedbuf += (size_t)ret;
-        //TODO解析数据
-        return 0;
-    }
-
-
+    int Recv();
+    int Send(void* buffer, size_t nSize);
+    int SendData(std::vector<char>& data);
 private:
     SOCKET m_sock;
     DWORD m_recvlen;
@@ -94,19 +100,19 @@ private:
     sockaddr_in m_laddr;
     sockaddr_in m_raddr;
     bool m_isbusy;
+    CSendQueue<std::vector<char>> m_vecSend; //发送数据队列
 };
 
 
 
 //Accept
 template<EOperator>
-class AcceptOverlapped :public EOverlappered, ThreadFuncBase
+class AcceptOverlapped :public EOverlappered, public ThreadFuncBase
 {//问题
 public:
     AcceptOverlapped();
     int AcceptWorker();
-public:
-    PCLIENT m_client;
+
 };
 
 
@@ -133,7 +139,8 @@ class SendOverlapped :public EOverlappered, ThreadFuncBase
 public:
     SendOverlapped();
     int SendWorker() {
-        //TODO
+        //send可能不会立刻完成
+
         return - 1;
     }
 };
@@ -170,7 +177,7 @@ public:
         m_addr.sin_addr.s_addr = inet_addr(ip.c_str());
         m_addr.sin_port = htons(port);
     }
-    ~CServer() {}
+    ~CServer();
 
     bool StartService();
     bool NewAccept() {
