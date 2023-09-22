@@ -52,50 +52,10 @@ bool ChooseAutoInvoke(const CString& strPath) {
 }
 
 
-void test() 
-{
-    //创建iocp 通过线程处理
-    CQueue<std::string> lstStrings;
-    ULONGLONG tick = GetTickCount64(), tick0 = GetTickCount64(), total = GetTickCount64();
-    while (GetTickCount64() - total <= 1000) {
-        //if (GetTickCount64() - tick0 > 5) 
-        {
-            lstStrings.PushBack("hello");
-            tick0 = GetTickCount64();
-        }
-        //Sleep(1);
-    }
-    printf("size:%d, exit done.\r\n", lstStrings.Size());
-    total = GetTickCount64();
-    while (GetTickCount64() - total <= 1000) {
-        //if (GetTickCount64() - tick > 5) 
-        {
-            std::string str;
-            lstStrings.PopFront(str);
-            tick = GetTickCount64();
-            //printf("pop from queue:%s.\r\n", str.c_str());
-        }
-        //Sleep(1);
-    }
-    printf("size:%d, exit done.\r\n", lstStrings.Size());
-    lstStrings.Clear();
-}
-
-
-class COverlappered {
-public:
-    OVERLAPPED m_overlapped;
-    DWORD m_operator;
-    char m_buffer[4096];
-    COverlappered() {
-        m_operator = 0;
-        memset(&m_overlapped, 0, sizeof(m_overlapped));
-        memset(m_buffer, 0, sizeof(m_buffer));
-    }
-};
 
 void iocp() {
     CServer server;
+    //开启监听
     server.StartService();
     getchar();
 }

@@ -71,6 +71,8 @@ public:
     }
     LPWSABUF RecvWSABuffer();
     LPWSABUF SendWSABuffer();
+    LPOVERLAPPED RecvOverlapped();
+    LPOVERLAPPED SendOverlapped();
 
     DWORD& flags() {
         return m_flags;
@@ -169,7 +171,6 @@ class CServer :
 public:
     CServer(const std::string& ip="0.0.0.0", short port = 9527):m_pool(10)
     {
-
         m_hIOCP = INVALID_HANDLE_VALUE;
         //异步套接字 重叠结构
         m_sock = INVALID_SOCKET;
@@ -180,30 +181,11 @@ public:
     ~CServer();
 
     bool StartService();
-    bool NewAccept() {
-        PCLIENT pClient(new CClient());
-        pClient->SetOverlapped(pClient);
-        m_client.insert(std::pair<SOCKET, PCLIENT>(*pClient, pClient));
-        if (AcceptEx(m_sock, *pClient, *pClient, 0, sizeof(sockaddr_in) + 16,
-            sizeof(sockaddr_in) + 16, *pClient, *pClient) == FALSE)
-        {
-            closesocket(m_sock);
-            m_sock = INVALID_SOCKET;
-            m_hIOCP = INVALID_HANDLE_VALUE;
-            return false;
-        }
-        return true;
-    }
+    bool NewAccept();
+    bool BindNewSocket(SOCKET s);
 
 private:
-    void CreateSocket() {
-        m_sock = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-        //可重用
-        int opt = 1;
-        setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-    }
-    
-
+    void CreateSocket();
     int threadIocp();
 private:
     ThreadPool m_pool;
