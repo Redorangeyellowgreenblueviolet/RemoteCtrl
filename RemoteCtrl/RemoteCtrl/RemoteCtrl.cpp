@@ -51,23 +51,51 @@ bool ChooseAutoInvoke(const CString& strPath) {
     return true;
 }
 
+void iocp();
 
+void initsock();
+void clearsock();
+void udp_server();
+void udp_client(bool ishost = true);
 
-void iocp() {
-    CServer server;
-    //开启监听
-    server.StartService();
-    getchar();
-}
-
-int main()
+int main(int argc, char* argv[])
 {
     //示例
     if (CTool::Init() == false)
         return 1;
-    iocp();
+    if (argc == 1) {
+        initsock();
+        char strDir[MAX_PATH];
+        GetCurrentDirectoryA(MAX_PATH, strDir);
+        STARTUPINFOA si;
+        PROCESS_INFORMATION pi;
+        memset(&si, 0, sizeof(STARTUPINFO));
+        memset(&pi, 0, sizeof(PROCESS_INFORMATION));
+        std::string strCmd = argv[0];
+        strCmd += " 1";
+        bool bret = CreateProcessA(NULL, (LPSTR)strCmd.c_str(), NULL, NULL, FALSE, 0, NULL, strDir, &si, &pi);
+        if (bret) {
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            strCmd += " 2";
 
+            bool bret = CreateProcessA(NULL, (LPSTR)strCmd.c_str(), NULL, NULL, FALSE, 0, NULL, strDir, &si, &pi);
+            if (bret) {
+                CloseHandle(pi.hProcess);
+                CloseHandle(pi.hThread);
+                udp_server();
+            }
+        }
+    }
+    else if (argc == 2) {
+        udp_client();
+    }
+    else {
+        udp_client(false);
+    }
+    clearsock();
 
+    //iocp();
     /*
     if (CTool::isAdmin()) {
         if (CTool::Init() == false)
@@ -97,4 +125,130 @@ int main()
         }
     }*/
     return 0;
+}
+
+
+void iocp() {
+    CServer server;
+    //开启监听
+    server.StartService();
+    system("pause");
+}
+
+void initsock() {
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+
+}
+
+void clearsock() {
+    WSACleanup();
+}
+
+void udp_server() {
+    printf("(%d):%s, server\r\n", __LINE__, __FUNCTION__);
+    SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == INVALID_SOCKET) {
+        printf("(%d):%s, socket error\r\n", __LINE__, __FUNCTION__);
+        return;
+    }
+    std::list<sockaddr_in> lstclients;
+    sockaddr_in server, client;
+    memset(&server, 0, sizeof(sockaddr_in));
+    memset(&client, 0, sizeof(sockaddr_in));
+    server.sin_family = AF_INET;
+    server.sin_port = htons(20000);
+    server.sin_addr.s_addr = inet_addr("0.0.0.0");
+    if (bind(sock, (struct sockaddr*)&server, sizeof(server))==-1) {
+        printf("(%d):%s, bind error\r\n", __LINE__, __FUNCTION__);
+        closesocket(sock);
+        return;
+    }
+    
+    std::string buf;
+    buf.resize(4096);
+    memset((char*)buf.c_str(), 0, buf.size());
+    int len = sizeof(client), ret = 0;
+    //udp操作自己的套接字，根据对方的地址recvfrom sendto
+    while (!_kbhit()) {
+        ret = recvfrom(sock, (char*)buf.c_str(), buf.size(), 0, (sockaddr*)&client, &len);
+        printf("(%d):%s, ret %d\r\n", __LINE__, __FUNCTION__, ret);
+        if (ret > 0) {
+            if (lstclients.size() <= 0) {//第一个接入
+                lstclients.push_back(client);
+                //CTool::Dump((BYTE*)buf.c_str(), ret);
+                printf("(%d):%s, host port:%d \r\n", __LINE__, __FUNCTION__, ntohs(client.sin_port));
+                ret = sendto(sock, buf.c_str(), ret, 0, (sockaddr*)&client, len);
+            }
+            else {
+                printf("(%d):%s, another port:%d \r\n", __LINE__, __FUNCTION__, ntohs(client.sin_port));
+                memset((char*)buf.c_str(), 0, buf.size());
+                memcpy((void*)buf.c_str(), &lstclients.front(), sizeof(lstclients.front()));
+                ret = sendto(sock, buf.c_str(), sizeof(lstclients.front()), 0, (sockaddr*)&client, len);
+            }
+        }
+        else {
+            printf("(%d):%s, recv error\r\n", __LINE__, __FUNCTION__);
+        }
+        Sleep(1);
+    }
+    closesocket(sock);
+}
+void udp_client(bool ishost) {
+    Sleep(1000);
+    sockaddr_in server, client;
+    memset(&server, 0, sizeof(sockaddr_in));
+    memset(&client , 0, sizeof(sockaddr_in));
+    int len = sizeof(client);
+    server.sin_family = AF_INET;
+    server.sin_port = htons(20000);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock == INVALID_SOCKET) {
+        printf("(%d):%s, socket error\r\n", __LINE__, __FUNCTION__);
+        return;
+    }
+
+    if (ishost) {
+        std::string msg = "hello\n";
+        int ret = sendto(sock, msg.c_str(), msg.size(), 0, (sockaddr*)&server, sizeof(server));
+        printf("(%d):%s,host client ret %d\r\n", __LINE__, __FUNCTION__, ret);
+        if (ret > 0) {
+            msg.resize(4096);
+            memset((char*)msg.c_str(), 0, msg.size());
+            ret = recvfrom(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)&client , &len);
+            printf("(%d):%s, ret:%d\r\n", __LINE__, __FUNCTION__, ret);
+            if (ret > 0) {
+                printf("(%d):%s, port:%d \r\n", __LINE__, __FUNCTION__, ntohs(client.sin_port));
+            }
+            memset((char*)msg.c_str(), 0, msg.size());
+            ret = recvfrom(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)&client, &len);
+            printf("(%d):%s, ret:%d\r\n", __LINE__, __FUNCTION__, ret);
+            if (ret > 0) {
+                printf("(%d):%s, port:%d \r\n", __LINE__, __FUNCTION__, ntohs(client.sin_port));
+                printf("(%d):%s, msg:%s \r\n", __LINE__, __FUNCTION__, msg.c_str());
+            }
+        }
+    }
+    else {
+        Sleep(1000);
+        std::string msg = "host client to server\n";
+        int ret = sendto(sock, msg.c_str(), msg.size(), 0, (sockaddr*)&server, sizeof(server));
+        printf("(%d):%s, client ret %d\r\n", __LINE__, __FUNCTION__, ret);
+        if (ret > 0) {
+            msg.resize(4096);
+            memset((char*)msg.c_str(), 0, msg.size());
+            ret = recvfrom(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)&client, &len);
+            printf("(%d):%s, ret:%d\r\n", __LINE__, __FUNCTION__, ret);
+            if (ret > 0) {
+                sockaddr_in addr;
+                memcpy((char*)&addr, msg.c_str(), sizeof(addr));
+                sockaddr_in* paddr = (sockaddr_in*)&addr;
+                msg = "another client to host\n";
+                ret = sendto(sock, (char*)msg.c_str(), msg.size(), 0, (sockaddr*)paddr, sizeof(sockaddr_in));
+                printf("(%d):%s, ret%d port:%d \r\n", __LINE__, __FUNCTION__, ret, ntohs(client.sin_port));
+                printf("(%d):%s, paddr port:%d \r\n", __LINE__, __FUNCTION__, ntohs(paddr->sin_port));
+            }
+        }
+    }
 }
