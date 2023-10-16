@@ -7,8 +7,6 @@
 #define BUFFER_SIZE 4096
 
 
-
-
 typedef void(*SOCK_CALLBACK)(void*, int, std::list<CPacket>&, CPacket&);
 
 
